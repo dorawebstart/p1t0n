@@ -14,6 +14,8 @@ for (let y = 2000; y <= LAST_YEAR; y++)
   jobs.push({ url: `https://firms.modaps.eosdis.nasa.gov/data/country/modis/${y}/modis_${y}_Ukraine.csv`, out: path.join(RAW, 'modis', `modis_${y}_Ukraine.csv`) });
 for (let y = 2012; y <= LAST_YEAR; y++)
   jobs.push({ url: `https://firms.modaps.eosdis.nasa.gov/data/country/viirs-snpp/${y}/viirs-snpp_${y}_Ukraine.csv`, out: path.join(RAW, 'viirs-snpp', `viirs-snpp_${y}_Ukraine.csv`) });
+for (let y = 2018; y <= LAST_YEAR; y++) // NOAA-20 — місток до Suomi NPP (контракт v2)
+  jobs.push({ url: `https://firms.modaps.eosdis.nasa.gov/data/country/viirs-jpss1/${y}/viirs-jpss1_${y}_Ukraine.csv`, out: path.join(RAW, 'viirs-jpss1', `viirs-jpss1_${y}_Ukraine.csv`) });
 jobs.push({ url: 'https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/UKR/ADM1/geoBoundaries-UKR-ADM1.geojson', out: path.join(RAW, 'boundaries', 'ukr_adm1.geojson') });
 
 async function get(job, tries = 3) {
