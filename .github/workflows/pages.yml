@@ -29,7 +29,7 @@ jobs:
         run: rm -f frontend/README.md frontend/public/data/README.md
       - name: Cache-bust scripts and styles with the commit id
         # Pages caches files for ~10 min; a new ?v= makes browsers fetch the new app.js at once.
-        run: sed -i -E "s/(style\.css|api\.js|app\.js|nav-pill\.js)\"/\1?v=${GITHUB_SHA::7}\"/g" frontend/index.html && grep -n '?v=' frontend/index.html
+        run: sed -i -E "s/(style\.css|api\.js|app\.js|nav-pill\.js|seg-motion\.js)\"/\1?v=${GITHUB_SHA::7}\"/g" frontend/index.html && grep -n '?v=' frontend/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
