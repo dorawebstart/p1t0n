@@ -12,6 +12,7 @@
 | 14.11 | Кніжницький Іван | Gemini | Перша версія скрипта «сирі ряди» | `analysis/step1_raw_series.py` | так: шапка скрипта |
 | 14.11 | Дорофєєв Ростислав | Claude Code | Виправлення скрипта «сирі ряди» (фільтр супутників, річний графік) | `analysis/step1_raw_series.py`, `docs/figures/raw_series_ukraine*.png` | так: шапка скрипта, підпис на графіку |
 | 14.11 | Крупіца Єгор | Claude Code | Скрипти гармонізації MODIS → Suomi NPP (Україна і сітка за широтними поясами), перевірка точності, чернетка опису методу | `model/harmonize.py`, `model/harmonize_grid.py`, `model/out/`, `model/README.md` | так: шапка скриптів, `model/README.md` |
+| 14.11 | Дорофєєв Ростислав | Claude Code | Переробка сайту Михайла (дані з файлів, англійська, розділ Method, PNG/CSV), експорт справжніх даних, запуск світової гармонізації, `docs/MATH.md`, `docs/DEMO_SCRIPT.md` | `frontend/*.js`, `frontend/index.html`, `backend/export_static.py`, `docs/` | так: шапки файлів, розділ «How we built it» на сайті |
 |  |  |  |  |  |  |
 
 **Як позначати:**
