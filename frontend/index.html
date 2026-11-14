@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>Глобальний Жар-календар вогню | P1t0n — NASA Space Apps 2026</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- НАСКРІЗНИЙ 3D-ФОН (Three.js Орбітальний Глобус + Супутники) -->
+  <div id="space-bg-container" aria-hidden="true">
+    <canvas id="globe-canvas"></canvas>
+    <div class="orbital-grid-overlay"></div>
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+  </div>
+
+  <div class="page-wrapper">
+    <!-- НАВІГАЦІЯ -->
+    <header class="navbar">
+      <div class="container nav-inner">
+        <a href="#page-1" class="brand">
+          <span class="brand-badge">P1t0n</span>
+          <span class="brand-title">Глобальний <span class="text-ember">Жар-календар</span></span>
+        </a>
+        
+        <nav class="nav-links" aria-label="Навігація по секціях">
+          <a href="#page-1" class="nav-tab active" data-target="page-1"><span class="tab-num">01</span> Головна</a>
+          <a href="#page-2" class="nav-tab" data-target="page-2"><span class="tab-num">02</span> Мапа та Календар</a>
+          <a href="#page-3" class="nav-tab" data-target="page-3"><span class="tab-num">03</span> Методологія</a>
+          <a href="#page-4" class="nav-tab" data-target="page-4"><span class="tab-num">04</span> Архітектура</a>
+        </nav>
+
+        <div class="nav-status">
+          <span id="api-status-badge" class="status-pill status-demo">
+            <span class="pulse-dot"></span>
+            <span class="status-text">Симуляція API</span>
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- СЕКЦІЯ 1: ГОЛОВНИЙ ЕКРАН -->
+    <section id="page-1" class="site-section landing-page">
+      <div class="container landing-container">
+        <div class="landing-hero-box">
+          <div class="orbital-badge animate-fade-up">
+            <span class="radar-ping"></span>
+            <span>NASA SPACE APPS CHALLENGE 2026 • GLOBAL FIRMS HARMONIZATION</span>
+          </div>
+
+          <h1 class="landing-title animate-fade-up delay-1">
+            Глобальний літопис<br />
+            <span class="text-ember">планетарного вогню</span>
+          </h1>
+
+          <p class="landing-lead animate-fade-up delay-2">
+            Гармонізація супутникових потоків <strong>MODIS (1 км)</strong> та <strong>VIIRS (375 м)</strong> 
+            у єдину безперервну хронологію <strong>2000–2026 років</strong> для аналізу пожежної активності 
+            в Україні та по всьому світу.
+          </p>
+
+          <div class="landing-cta-group animate-fade-up delay-3">
+            <a href="#page-2" class="btn btn-primary btn-hero">
+              <span>Відкрити мапу світу та аналіз</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </a>
+            <a href="#page-4" class="btn btn-outline btn-hero">
+              <span>Архітектура системи</span>
+            </a>
+          </div>
+
+          <div class="telemetry-strip animate-fade-up delay-4">
+            <div class="telemetry-item glass-panel spotlight-card">
+              <span class="tel-code">GLOBAL COVERAGE</span>
+              <strong class="tel-val">Весь Світ</strong>
+              <span class="tel-desc">Україна, Amazon, Каліфорнія, Сибір тощо</span>
+            </div>
+            <div class="telemetry-item glass-panel spotlight-card">
+              <span class="tel-code">DUAL SENSOR STREAM</span>
+              <strong class="tel-val text-teal">MODIS + VIIRS</strong>
+              <span class="tel-desc">Усунення розриву чутливості після 2012 р.</span>
+            </div>
+            <div class="telemetry-item glass-panel spotlight-card">
+              <span class="tel-code">TIMELINE</span>
+              <strong class="tel-val text-ember">27 Років</strong>
+              <span class="tel-desc">Погодинний та щомісячний моніторинг</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="scroll-down-hint">ПРОДОВЖУЙТЕ СКРОЛІТЬ ВНИЗ ↓</div>
+    </section>
+
+    <!-- СЕКЦІЯ 2: МАПА (ВЕЛИКА ЯК КОЛИШНІЙ КАЛЕНДАР) ТА КАЛЕНДАР (У 2 РАЗИ МЕНШИЙ) -->
+    <section id="page-2" class="site-section workspace-page">
+      <div class="container">
+        
+        <div class="workspace-top-bar">
+          <div>
+            <div class="eyebrow">Секція 02 • Глобальний моніторинг</div>
+            <h2 class="page-heading">Мапа термальних аномалій світу</h2>
+          </div>
+
+          <div class="kpi-strip">
+            <div class="kpi-card spotlight-card">
+              <span class="kpi-label">Період / Регіон</span>
+              <strong class="kpi-value" id="kpi-period">2024-08</strong>
+              <span class="kpi-sub" id="kpi-region-name">Ukraine</span>
+            </div>
+            <div class="kpi-card spotlight-card">
+              <span class="kpi-label">Гармонізовано</span>
+              <strong class="kpi-value text-ember" id="kpi-hotspots">—</strong>
+              <span class="kpi-sub">Калібровані точки</span>
+            </div>
+            <div class="kpi-card spotlight-card">
+              <span class="kpi-label">Аномалія (Z)</span>
+              <strong class="kpi-value" id="kpi-anomaly">—</strong>
+              <span class="kpi-sub" id="kpi-anomaly-desc">Відхилення від норми</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Панель фільтрів -->
+        <div class="control-bar glass-panel spotlight-card">
+          <div class="control-group">
+            <label for="region-select">Регіон / Країна світу</label>
+            <select id="region-select" class="custom-select"></select>
+          </div>
+
+          <div class="control-group">
+            <label>Діапазон років</label>
+            <div class="year-range-inputs">
+              <input type="number" id="year-from" min="2000" max="2026" value="2000" class="custom-input" />
+              <span class="range-sep">—</span>
+              <input type="number" id="year-to" min="2000" max="2026" value="2026" class="custom-input" />
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label>Джерело супутника (Шар)</label>
+            <div class="segmented-control" id="sensor-toggle">
+              <button type="button" class="seg-btn active" data-sensor="harmonized">Harmonized</button>
+              <button type="button" class="seg-btn" data-sensor="MODIS">MODIS</button>
+              <button type="button" class="seg-btn" data-sensor="VIIRS">VIIRS</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label>Візуалізація та експорт</label>
+            <div class="action-row">
+              <div class="segmented-control flex-grow" id="map-mode-toggle">
+                <button type="button" class="seg-btn active" data-mode="markers">Точки</button>
+                <button type="button" class="seg-btn" data-mode="clusters">Зони</button>
+              </div>
+              <button type="button" id="btn-export-csv" class="btn btn-outline btn-csv" title="Завантажити CSV вибірку">CSV</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ГОРИЗОНТАЛЬНА СІТКА: Велика мапа зліва (як колишній календар), компактний календар справа (в 2 рази менший) -->
+        <div class="workspace-grid-swapped">
+          
+          <!-- 1. ВЕЛИКА МАПА ТА БЛОК ГАРМОНІЗАЦІЇ (ЗЛІВА) -->
+          <div class="map-card glass-panel spotlight-card">
+            <div class="card-header">
+              <div class="card-title-block">
+                <h3>Глобальна просторова мапа</h3>
+                <p class="card-desc">Клікніть на вогнище для перегляду потужності (FRP)</p>
+              </div>
+              <div class="coord-search">
+                <input type="text" id="coord-input" placeholder="50.45, 30.52" class="custom-input input-sm" />
+                <button type="button" id="btn-go-coord" class="btn btn-primary btn-sm">Перейти</button>
+              </div>
+            </div>
+
+            <div class="map-wrapper map-wrapper-huge">
+              <div id="map"></div>
+              <div class="map-legend">
+                <div class="legend-title">Потужність (FRP)</div>
+                <div class="legend-item"><span class="dot low"></span> &lt; 25 МВт</div>
+                <div class="legend-item"><span class="dot med"></span> 25–80 МВт</div>
+                <div class="legend-item"><span class="dot high"></span> &gt; 80 МВт</div>
+              </div>
+            </div>
+
+            <div class="sensor-comparison-bar">
+              <div class="comp-header">
+                <span>Ефект гармонізації (<strong id="comp-month-label">2024-08</strong>)</span>
+                <span class="comp-badge">Усунення стрибка після 2012 р.</span>
+              </div>
+              <div class="comp-bars">
+                <div class="comp-row">
+                  <span class="comp-name">Сирий MODIS</span>
+                  <div class="progress-track"><div id="bar-modis" class="progress-fill fill-modis" style="width: 35%"></div></div>
+                  <span class="comp-val" id="val-modis">0</span>
+                </div>
+                <div class="comp-row">
+                  <span class="comp-name">Сирий VIIRS</span>
+                  <div class="progress-track"><div id="bar-viirs" class="progress-fill fill-viirs" style="width: 85%"></div></div>
+                  <span class="comp-val" id="val-viirs">0</span>
+                </div>
+                <div class="comp-row">
+                  <span class="comp-name text-ember">Harmonized</span>
+                  <div class="progress-track"><div id="bar-harm" class="progress-fill fill-harm" style="width: 78%"></div></div>
+                  <span class="comp-val text-ember" id="val-harm">0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. КОМПАКТНИЙ КАЛЕНДАР (СПРАВА, В 2 РАЗИ МЕНШИЙ) -->
+          <div class="heatmap-card heatmap-card-compact glass-panel spotlight-card">
+            <div class="card-header">
+              <div class="card-title-block">
+                <h3>Календар</h3>
+                <p class="card-desc">Місяць × Рік</p>
+              </div>
+              <div class="heatmap-controls">
+                <label class="checkbox-pill">
+                  <input type="checkbox" id="toggle-anomalies-only" />
+                  <span>Лише аномалії</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="heatmap-scroll-container compact-scroll">
+              <div id="heatmap-grid" class="heatmap-matrix"></div>
+            </div>
+
+            <div class="heatmap-footer">
+              <div class="color-ramp">
+                <span>Мін</span>
+                <div class="ramp-gradient"></div>
+                <span>Пік</span>
+              </div>
+              <div class="anomaly-key">
+                <span class="anomaly-sample"></span> Аномалія
+              </div>
+            </div>
+
+            <div id="cell-inspector" class="inspector-box">
+              <div class="inspector-title">Період: <span id="insp-date">2024-08</span></div>
+              <p id="insp-summary" class="inspector-text">Оберіть клітинку вище.</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- СЕКЦІЯ 3: НАУКОВА БАЗА ТА МЕТОДОЛОГІЯ -->
+    <section id="page-3" class="site-section science-page">
+      <div class="container">
+        <div class="workspace-top-bar">
+          <div>
+            <div class="eyebrow">Секція 03 • Критерій Validity</div>
+            <h2 class="page-heading">Гармонізація супутникових даних NASA FIRMS</h2>
+          </div>
+        </div>
+
+        <div class="science-grid">
+          <div class="glass-panel science-card spotlight-card">
+            <div class="eyebrow">Математична регресія</div>
+            <h3>Калібрування MODIS ↔ VIIRS у світі</h3>
+            <p class="card-desc">
+              Супутник VIIRS (375 м) завдяки високій роздільній здатності виявляє у 2.5–3 рази більше вогнищ, ніж MODIS (1 км). Наш алгоритм відновлює єдину шкалу за період перекриття 2012–2021 років.
+            </p>
+            
+            <div class="metrics-row">
+              <div class="metric-pill">
+                <span class="m-label">MAE (Середня похибка)</span>
+                <strong class="m-val" id="metric-mae">—</strong>
+              </div>
+              <div class="metric-pill">
+                <span class="m-label">R² (Коеф. детермінації)</span>
+                <strong class="m-val text-ember" id="metric-r2">—</strong>
+              </div>
+            </div>
+            <blockquote id="metric-notes" class="science-note">Завантаження приміток моделі...</blockquote>
+          </div>
+
+          <div class="glass-panel science-card spotlight-card">
+            <div class="eyebrow">Планетарний фокус</div>
+            <h3>Типи режимів горіння у світі</h3>
+            <ul class="insight-list">
+              <li>
+                <strong>Україна та Східна Європа:</strong> 
+                Сезонні сільськогосподарські пали сухостою навесні та восени, лісові пожежі на Поліссі.
+              </li>
+              <li>
+                <strong>Тропічні ліси (Amazon Basin, Central Africa):</strong> 
+                Масштабні вирубки та сезонні випалювання під сільськогосподарські угіддя в сухий сезон.
+              </li>
+              <li>
+                <strong>Північні екосистеми (Siberia, Canada):</strong> 
+                Бореальні лісові пожежі, торф'яники та викиди вуглецю у глобальному масштабі.
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="pipeline-grid">
+          <div class="glass-panel pipeline-step spotlight-card">
+            <span class="step-num">КРОК 01</span>
+            <h4>Глобальний збір FIRMS</h4>
+            <p>Завантаження космічних потоків MODIS C6.1 та VIIRS із привязкою до географічних координат та глобальних регіонів.</p>
+          </div>
+          <div class="glass-panel pipeline-step spotlight-card">
+            <span class="step-num">КРОК 02</span>
+            <h4>Крос-сенсорна корекція</h4>
+            <p>Усунення штучного стрибка кількості пожеж після запусків супутників SNPP та NOAA у 2012 році.</p>
+          </div>
+          <div class="glass-panel pipeline-step spotlight-card">
+            <span class="step-num">КРОК 03</span>
+            <h4>Z-score Аномалії</h4>
+            <p>Автоматичне порівняння активності поточного місяця з багаторічною медіаною (2012–2021) для виявлення екологічних катастроф.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- СЕКЦІЯ 4: ФІНАЛЬНА АРХІТЕКТУРА КОМБІНОВАНОЇ СИСТЕМИ -->
+    <section id="page-4" class="site-section architecture-page">
+      <div class="container">
+        <div class="workspace-top-bar">
+          <div>
+            <div class="eyebrow">Секція 04 • Системна інженерія NASA Space Apps</div>
+            <h2 class="page-heading">Фінальна архітектура комбінованої системи моніторингу</h2>
+          </div>
+        </div>
+
+        <div class="arch-intro-card glass-panel spotlight-card">
+          <p>
+            Наша команда пропонує створити єдину систему супутникового моніторингу, яка використовуватиме два супутники для спільного спостереження за поверхнею Землі. Основна мета полягає в тому, щоб поєднати переваги двох супутників з різними технічними характеристиками та усунути недоліки їх окремого застосування.
+          </p>
+        </div>
+
+        <div class="arch-content-grid">
+          <div class="glass-panel arch-card spotlight-card">
+            <span class="step-num">СУПУТНИК №1</span>
+            <h3>Первинне спостереження та виявлення</h3>
+            <p>
+              Перший супутник здійснює <strong>чотири оберти навколо Землі за добу</strong>, але має відносно низьку якість зображення. Він виступає початковою ланкою для регулярного моніторингу територій та виявлення попередніх ознак пожеж.
+            </p>
+            <ul class="features-list">
+              <li>Частота: 4 оберти за добу (висока оперативність).</li>
+              <li>Призначення: швидке первинне сканування та фіксація аномалій.</li>
+            </ul>
+          </div>
+          <div class="glass-panel arch-viewport-card spotlight-card">
+            <div class="arch-viewport-label">3D Візуалізація: Орбітальний сканер (Супутник №1)</div>
+            <div class="model-viewport" id="model-sat-1"></div>
+          </div>
+        </div>
+
+        <div class="arch-content-grid reversed">
+          <div class="glass-panel arch-viewport-card spotlight-card">
+            <div class="arch-viewport-label">3D Візуалізація: Високодетальна оптика (Супутник №2)</div>
+            <div class="model-viewport" id="model-sat-2"></div>
+          </div>
+          <div class="glass-panel arch-card spotlight-card">
+            <span class="step-num">СУПУТНИК №2</span>
+            <h3>Деталізація та уточнення об'єктів</h3>
+            <p>
+              Другий супутник здійснює <strong>два оберти за добу</strong>, проте має значно якіснішу камеру високої роздільної здатності. Система використовує його вибірково для прицільного знімку межі пожежі.
+            </p>
+            <ul class="features-list">
+              <li>Роздільна здатність: мікросканування меж вогнища.</li>
+              <li>Призначення: вибіркове прицільне уточнення критичних зон.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="arch-content-grid">
+          <div class="glass-panel arch-card spotlight-card">
+            <span class="step-num">ПРОЦЕСИНГ</span>
+            <h3>Інтелектуальна система обробки даних</h3>
+            <p>
+              Наземна станція об'єднує незалежні потоки з обох супутників, виконує геометричне суміщення та <strong>векторизацію</strong> — перетворення кольорових плям на чіткі цифрові контури з розрахованою площею.
+            </p>
+            <ul class="features-list">
+              <li>Геометричне суміщення та крос-калібрування.</li>
+              <li>Автоматична векторизація контурів та розрахунок площ.</li>
+            </ul>
+          </div>
+          <div class="glass-panel arch-viewport-card spotlight-card">
+            <div class="arch-viewport-label">3D Візуалізація: Нейромережева матриця злиття даних</div>
+            <div class="model-viewport" id="model-processing"></div>
+          </div>
+        </div>
+
+        <div class="arch-content-grid reversed">
+          <div class="glass-panel arch-viewport-card spotlight-card">
+            <div class="arch-viewport-label">3D Візуалізація: Інтерактивний планетарний глобус карти</div>
+            <div class="model-viewport" id="model-globe-arch"></div>
+          </div>
+          <div class="glass-panel arch-card spotlight-card">
+            <span class="step-num">РЕЗУЛЬТАТ</span>
+            <h3>Єдина карта моніторингу</h3>
+            <p>
+              Фінальний продукт — інтерактивна цифрова карта для користувача. Вона поєднує постійні оновлення першого супутника та точні векторні контури другого в єдиному зручному інтерфейсі.
+            </p>
+            <ul class="features-list">
+              <li>Зручний інтерфейс з усіма атрибутами в єдиному місці.</li>
+              <li>Збереження попередніх даних з індикацією рівня невизначеності.</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Футер -->
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div>Команда <strong>P1t0n</strong> • NASA Space Apps Challenge 2026 (Kyiv)</div>
+        <div class="footer-note">Дані: NASA FIRMS (Global MODIS C6.1 &amp; VIIRS 375m)</div>
+      </div>
+    </footer>
+  </div>
+
+  <div id="heatmap-tooltip" class="floating-tooltip hidden"></div>
+
+  <!-- Three.js + Leaflet JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
