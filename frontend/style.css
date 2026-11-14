@@ -796,7 +796,7 @@ body {
 
 .comp-row {
   display: grid;
-  grid-template-columns: 95px 1fr 48px;
+  grid-template-columns: 95px minmax(40px, 1fr) max-content;
   align-items: center;
   gap: 10px;
   font-size: 0.8rem;
@@ -823,6 +823,8 @@ body {
   font-family: var(--font-mono);
   text-align: right;
   font-weight: 600;
+  white-space: nowrap;
+  min-width: 6ch;
 }
 
 .checkbox-pill {
@@ -1591,7 +1593,7 @@ body {
   .orbital-badge { font-size: 0.75rem; letter-spacing: 0.04em; white-space: normal; }
   .readout > div { flex-direction: column; gap: 2px; }
   .readout dd { text-align: left; }
-  .comp-row { grid-template-columns: 82px 1fr 56px; }
+  .comp-row { grid-template-columns: 82px minmax(30px, 1fr) max-content; }
   .raw-chart { height: 300px; }
   .coef-body { grid-template-columns: 1fr; }
 }

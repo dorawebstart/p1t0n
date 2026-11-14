@@ -366,14 +366,14 @@
 
           <div class="control-group">
             <label for="month-from">From</label>
-            <input type="month" id="month-from" class="custom-input" title="First month shown" />
-            <span class="helper">First month shown.</span>
+            <input type="text" id="month-from" class="custom-input" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="10" placeholder="YYYY-M" title="First month shown, e.g. 2008-4 or 2008-04; press Enter" />
+            <span class="helper" id="from-help">First month shown. Type e.g. 2008-4, press Enter.</span>
           </div>
 
           <div class="control-group">
             <label for="month-to">To</label>
-            <input type="month" id="month-to" class="custom-input" title="Last month shown" />
-            <span class="helper">Last month shown.</span>
+            <input type="text" id="month-to" class="custom-input" inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="10" placeholder="YYYY-M" title="Last month shown, e.g. 2025-12; press Enter" />
+            <span class="helper" id="to-help">Last month shown.</span>
           </div>
 
           <div class="control-group">
