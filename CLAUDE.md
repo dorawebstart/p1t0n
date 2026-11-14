@@ -174,7 +174,8 @@
 ```
 p1t0n/
 ├── pipeline/   ← data engineer
-├── model/      ← data scientist
+├── model/      ← data scientist (гармонізація)
+├── analysis/   ← аналітик (валідація, календар, графіки)
 ├── backend/    ← капітан
 ├── frontend/   ← фронтенд, дизайн
 ├── docs/       ← усі (тексти, слайди), аналітик (графіки)
@@ -209,7 +210,7 @@ date (YYYY-MM-DD), lat, lon, sensor (MODIS|VIIRS), satellite, frp, confidence, c
 ```
 region_id, year, month, modis_count, viirs_count, harmonized_count, median_count, anomaly (z-score)
 ```
-`region_id` — код готової зони: `WORLD`, код країни ISO-3 (`UKR`, `POL`…) або `UKR-<область>`. `median_count` — медіана `harmonized_count` для цієї зони й місяця за всі роки. Для довільної зони сайт рахує те саме з клітинок.
+`region_id` — код готової зони: `WORLD`, код країни ISO-3 (`UKR`, `POL`…) або область: `UKR-` + назва з `fires.region` без « Oblast» і без «Autonomous Republic of », пробіли → `-` (`Kyiv Oblast` → `UKR-Kyiv`, `Kyiv City` → `UKR-Kyiv-City`, `Autonomous Republic of Crimea` → `UKR-Crimea`). `median_count` — медіана `harmonized_count` для цієї зони й місяця за всі роки. Для довільної зони сайт рахує те саме з клітинок.
 
 **Гармонізовані клітинки `grid_harmonized`** — пише data scientist, читає капітан:
 ```
@@ -225,11 +226,11 @@ cell_id, year, month, modis_count, viirs_count, harmonized_count
 - `GET /api/regions` → `[{"id": "UKR", "name": "Ukraine", "bbox": [minLon, minLat, maxLon, maxLat]}, ...]`
 - `GET /api/calendar?region=UKR&from=2000-01&to=2026-10` → масив рядків `calendar`
 - `GET /api/grid?tile=40_30` → масив рядків `grid_harmonized` для плитки
-- `GET /api/fires?region=UKR-Kyiv&month=2024-08&sensor=MODIS|VIIRS` → масив точок `{lat, lon, frp, sensor, satellite, date}` (лише Україна)
+- `GET /api/fires?region=UKR-Kyiv&month=2024-08&sensor=MODIS|VIIRS` → масив точок `{lat, lon, frp, sensor, satellite, date, region_id}` (лише Україна; у статичній версії — файл `fires/UA/<YYYY-MM>.json` на весь місяць, фільтр за областю й сенсором робить сайт)
 - `GET /api/fires?...&format=csv` → те саме файлом CSV
 - `GET /api/metrics` → `metrics.json`
 
-У першу годину все це повертає **фейкові дані в цьому самому форматі**. Так фронтенд працює одразу, не чекаючи даних і моделі.
+**Фейкові дані вже лежать у `frontend/public/data/`** у цьому самому форматі (генератор — `backend/make_fake_data.js`, опис — `frontend/public/data/README.md`). Файл `manifest.json` має `"fake": true` — поки так, сайт показує плашку «Demo data». Справжні дані замінять ці файли без змін у коді фронтенду.
 
 ## Підказки по ролях
 - **Data engineer і data scientist (Python через ШІ).** Просіть ШІ писати маленькі скрипти по одному кроку: «завантаж CSV», «відфільтруй», «порахуй клітинки», «збережи у grid_monthly.csv». Запускайте кожен скрипт і показуйте ШІ помилки. Зберігайте результат у форматі контракту.
