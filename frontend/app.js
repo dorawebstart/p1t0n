@@ -812,6 +812,16 @@
       return;
     }
     map = L.map('map', { center: [20, 10], zoom: 2, minZoom: 1, maxZoom: 14, zoomSnap: 0.5, scrollWheelZoom: false, worldCopyJump: true });
+    // Trackpad pinch arrives as wheel + ctrlKey (Ctrl + mouse wheel too): zoom the map, not the page.
+    // Plain wheel keeps scrolling the page. Touch pinch on phones is Leaflet's own touchZoom.
+    map.getContainer().addEventListener('wheel', function (e) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      var dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      var z = map.getZoom() - dy * 0.01;
+      z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), z));
+      map.setZoomAround(map.mouseEventToContainerPoint(e), z, { animate: false });
+    }, { passive: false });
     map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
     canvasRenderer = L.canvas({ padding: 0.5 });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1169,6 +1179,16 @@
           state.selected = worldAvailable(same) ? same : last;
           if (state.to && state.to < state.selected) state.to = null;
           if (state.from && state.from > state.selected) state.from = null;
+          monthMoved = true;
+        }
+        // Ukraine points exist only for some months (2026): move to the same month of the last
+        // point year, or the last point month.
+        if (state.layerPref === 'ukraine' && state.fireMonths && state.fireMonths.length &&
+            state.fireMonths.indexOf(state.selected) === -1) {
+          var fm = state.fireMonths, lastF = fm[fm.length - 1];
+          var sameF = state.selected ? lastF.slice(0, 4) + state.selected.slice(4) : null;
+          state.selected = fm.indexOf(sameF) !== -1 ? sameF : lastF;
+          if (state.to && state.to < state.selected) state.to = null;
           monthMoved = true;
         }
         if (next !== state.regionId || monthMoved) {
