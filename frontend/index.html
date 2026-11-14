@@ -124,8 +124,8 @@
             <div class="raw-chart-head">
               <div class="control-group">
                 <div class="segmented-control" id="raw-toggle" role="group" aria-label="Area of the yearly counts">
-                  <button type="button" class="seg-btn active" data-area="ukraine" aria-pressed="true" title="Yearly raw counts for Ukraine">Ukraine</button>
-                  <button type="button" class="seg-btn" data-area="world" aria-pressed="false" title="Yearly raw counts for the whole world">World</button>
+                  <button type="button" class="seg-btn active" data-area="ukraine" data-cap="Ukraine: raw yearly hotspot counts, 2001–2025." aria-pressed="true" title="Yearly raw counts for Ukraine">Ukraine</button>
+                  <button type="button" class="seg-btn" data-area="world" data-cap="Whole world: raw yearly hotspot counts, 2001–2025." aria-pressed="false" title="Yearly raw counts for the whole world">World</button>
                 </div>
                 <span class="helper">Which area the bars count.</span>
               </div>
@@ -311,8 +311,8 @@
             </div>
             <div class="control-group valid-controls">
               <div class="segmented-control" id="valid-toggle" role="group" aria-label="Area of the validation chart">
-                <button type="button" class="seg-btn active" data-area="ukraine" aria-pressed="true" title="Validation for Ukraine">Ukraine</button>
-                <button type="button" class="seg-btn" data-area="world" aria-pressed="false" title="Validation for the whole world">World</button>
+                <button type="button" class="seg-btn active" data-area="ukraine" data-cap="Ukraine: monthly totals on unseen years 2021–2025." aria-pressed="true" title="Validation for Ukraine">Ukraine</button>
+                <button type="button" class="seg-btn" data-area="world" data-cap="Whole world: monthly totals on unseen years 2021–2025." aria-pressed="false" title="Validation for the whole world">World</button>
               </div>
               <span class="helper">Which area's monthly totals are compared.</span>
             </div>
@@ -379,9 +379,9 @@
           <div class="control-group">
             <span class="label-like" id="series-label">Series</span>
             <div class="segmented-control" id="series-toggle" role="group" aria-labelledby="series-label">
-              <button type="button" class="seg-btn active" data-series="harmonized" title="Harmonized series on the Suomi NPP VIIRS scale">Harmonized</button>
-              <button type="button" class="seg-btn" data-series="modis" title="Raw MODIS counts (Terra + Aqua)">MODIS</button>
-              <button type="button" class="seg-btn" data-series="viirs" title="Raw VIIRS counts from Suomi NPP (2012 onwards)">VIIRS (SNPP)</button>
+              <button type="button" class="seg-btn active" data-series="harmonized" data-cap="One series 2000–2026 on the Suomi NPP scale." title="Harmonized series on the Suomi NPP VIIRS scale">Harmonized</button>
+              <button type="button" class="seg-btn" data-series="modis" data-cap="Raw MODIS (Terra + Aqua): fewer hotspots, from 2000." title="Raw MODIS counts (Terra + Aqua)">MODIS</button>
+              <button type="button" class="seg-btn" data-series="viirs" data-cap="Raw VIIRS Suomi NPP: from 2012 only." title="Raw VIIRS counts from Suomi NPP (2012 onwards)">VIIRS (SNPP)</button>
             </div>
             <span class="helper">Which numbers colour the cells.</span>
           </div>
@@ -487,16 +487,16 @@
             <div class="map-tools">
               <div class="control-group">
                 <div class="segmented-control" id="layer-toggle" role="group" aria-label="Map layer">
-                  <button type="button" class="seg-btn active" data-layer="world" aria-pressed="true" title="Harmonized hotspot counts per 1° cell, whole world, 2000–2025">World cells (1°)</button>
-                  <button type="button" class="seg-btn" data-layer="ukraine" aria-pressed="false" title="Individual MODIS and VIIRS hotspots in Ukraine">Ukraine points</button>
+                  <button type="button" class="seg-btn active" data-layer="world" data-cap="Hotspots per 1° cell, whole world, 2000–2025." aria-pressed="true" title="Harmonized hotspot counts per 1° cell, whole world, 2000–2025">World cells (1°)</button>
+                  <button type="button" class="seg-btn" data-layer="ukraine" data-cap="Single hotspots in Ukraine, 2026 (preliminary)." aria-pressed="false" title="Individual MODIS and VIIRS hotspots in Ukraine">Ukraine points</button>
                 </div>
                 <span class="helper">What the map draws.</span>
               </div>
               <div class="control-group" id="cells-tools">
                 <div class="segmented-control" id="cells-series-toggle" role="group" aria-label="Which counts the world cells show">
-                  <button type="button" class="seg-btn active" data-series="harmonized" aria-pressed="true" title="MODIS translated to the Suomi NPP scale (2000–2012), real Suomi NPP after">Harmonized</button>
-                  <button type="button" class="seg-btn" data-series="modis" aria-pressed="false" title="Raw MODIS hotspots, Terra + Aqua">MODIS</button>
-                  <button type="button" class="seg-btn" data-series="viirs" aria-pressed="false" title="Raw VIIRS hotspots, Suomi NPP (from 2012)">VIIRS (SNPP)</button>
+                  <button type="button" class="seg-btn active" data-series="harmonized" data-cap="One series 2000–2026 on the Suomi NPP scale (same switch as the calendar)." aria-pressed="true" title="MODIS translated to the Suomi NPP scale (2000–2012), real Suomi NPP after">Harmonized</button>
+                  <button type="button" class="seg-btn" data-series="modis" data-cap="Raw MODIS (Terra + Aqua): fewer hotspots, from 2000." aria-pressed="false" title="Raw MODIS hotspots, Terra + Aqua">MODIS</button>
+                  <button type="button" class="seg-btn" data-series="viirs" data-cap="Raw VIIRS Suomi NPP: from 2012 only." aria-pressed="false" title="Raw VIIRS hotspots, Suomi NPP (from 2012)">VIIRS (SNPP)</button>
                 </div>
                 <span class="helper">Which counts colour the cells (same switch as the calendar).</span>
               </div>
@@ -591,6 +591,8 @@
               <li><strong>OpenStreetMap</strong> contributors — map tiles.</li>
               <li><strong>Leaflet</strong> 1.9.4 — interactive map.</li>
               <li><strong>three.js</strong> r128 — 3D chart of raw yearly counts and decorative background.</li>
+              <li><strong>Tab pill</strong> motion study (designbookmark.com/motion) — spring animation of the navigation pill, rebuilt in plain JS.</li>
+              <li><strong>Segmented control</strong> motion study (designbookmark.com/motion) — spring highlight and caption swap of the mode switches, rebuilt in plain JS.</li>
             </ul>
           </div>
         </div>
@@ -611,5 +613,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="api.js"></script>
   <script src="app.js"></script>
+  <script src="nav-pill.js"></script>
+  <script src="seg-motion.js"></script>
 </body>
 </html>
