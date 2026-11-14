@@ -3,7 +3,8 @@
 Власник: data engineer. Будує дві таблиці контракту v2 (див. `CLAUDE.md`, розділ «Контракт даних»):
 
 - **`fires`** — окремі точки активних пожеж по Україні;
-- **`grid_monthly`** — кількість точок у клітинках 0,25° за місяць і супутник, для всього світу.
+- **`grid_monthly`** — кількість точок у клітинках 0,25° за місяць і супутник, для всього світу;
+- **`cell_country`** — довідник «клітинка → країна (ISO-3) → область України», щоб рахувати календарі країн і областей.
 
 Працюйте у своїй гілці, у `main` — через Pull Request. Правила: `docs/TEAM_WORKFLOW.md`.
 
@@ -17,7 +18,19 @@
 | `data/grid_monthly_UKR_v1.csv.gz` | `grid_monthly` лише для України (2000–2025), 292 101 рядок — щоб гармонізацію можна було почати, не чекаючи світу |
 | `data/fires_v2_stats.json` | що прочитано й відкинуто, розбивка по роках × супутниках, `confidence`, областях |
 | `data/regions.json`, `data/regions.geojson` | 27 областей України; властивість `region` = `fires.region` |
-| Google Drive `processed/grid_monthly_v1.csv(.gz)` | `grid_monthly` для світу (будується зараз, див. нижче) |
+| [Google Drive `processed/grid_monthly_v1.csv.gz`](https://drive.google.com/file/d/1Vmy12m93D2-YJMaQ-MGfb6annaXvPQiA/view?usp=sharing) (156 МБ) | `grid_monthly` для світу, 2000–2025: 23 614 861 рядок, 515 029 947 точок; суми збігаються з усіма 48 архівами FIRMS |
+| [Google Drive `processed/cell_country.csv`](https://drive.google.com/file/d/18YVk8iaIb3HNo8Y8Osrtf6focQKpWv1n/view?usp=sharing) (3,2 МБ) | `cell_id, iso3, region_id` для кожної з 191 187 клітинок світової сітки, 228 країн |
+
+### `cell_country`: клітинка → країна → область
+
+`cell_id, iso3, region_id` — приклад: `50.25_30.50,UKR,UKR-Kyiv-City`, `52.00_21.00,POL,`.
+
+- **Країна — за центром клітинки** в межах Natural Earth Admin 0, 1:10m, **версія з погляду України** (`ne_10m_admin_0_countries_ukr`, Крим — Україна). Код — `ISO_A3`, якщо його немає (Франція, Норвегія) — `ISO_A3_EH`, для спірних клаптиків без ISO — `ADM0_A3`.
+- **Область** — лише для `iso3 = UKR`: межі geoBoundaries ADM1 (ті самі, що в `fires`), `region_id` за правилом `CLAUDE.md`: `Kyiv Oblast` → `UKR-Kyiv`, `Kyiv City` → `UKR-Kyiv-City`, `Autonomous Republic of Crimea` → `UKR-Crimea`. Місто Київ і Севастополь перевіряються раніше за області, у яких вони лежать.
+- Центр у морі (узбережжя, острівці) → найближча країна в межах 0,25°; інакше `iso3` порожній (19 клітинок).
+- **Важливо для календарів України.** Правило «за центром» відносить прикордонні клітинки сусідам: 104 з 1 325 клітинок сітки України мають центр за кордоном (RUS 35, MDA 22, BLR 17, ROU 17, POL 9, HUN 2, SVK 2). У них **2,3 % точок України** (49 798 з 2 177 976). Тому календарі **України та її областей** точніше рахувати з `fires.region` (точка в полігоні), а `cell_country` — для інших країн і світу.
+
+Запуск: `node pipeline/06_cell_country.js` — бере клітинки з усіх частин світової сітки й з сітки України, друкує звірку з Україною. Після завершення світу запустити ще раз (з'являються нові клітинки).
 
 ```python
 import pandas as pd
@@ -56,6 +69,7 @@ node pipeline/02_build_fires.js         # → fires (Україна)
 node pipeline/05_grid_monthly.js ukraine  # → grid_monthly України + звірка сум із fires
 node pipeline/04_download_world.js      # архіви світу ≈ 10 ГБ (FIRMS віддає ~0,8 МБ/с на з'єднання)
 node pipeline/05_grid_monthly.js watch  # агрегує кожен архів, щойно він завантажився; наприкінці merge
+node pipeline/06_cell_country.js        # довідник клітинка → країна → область (Natural Earth + geoBoundaries)
 ```
 
 Усе, що завантажується й будується, лежить у `pipeline/data/` і не потрапляє в git.
@@ -120,3 +134,5 @@ node pipeline/05_grid_monthly.js watch  # агрегує кожен архів, 
 > We acknowledge the use of data and/or imagery from NASA's Fire Information for Resource Management System (FIRMS) (https://earthdata.nasa.gov/firms), part of NASA's Land, Atmosphere Near real-time Capability for Earth observations (LANCE) (https://earthdata.nasa.gov/lance) and NASA's Earth Science Data and Information System (ESDIS).
 
 Кордони областей: geoBoundaries (Runfola et al. 2020), https://www.geoboundaries.org/, джерело OpenStreetMap, ліцензія ODbL 1.0.
+
+Межі країн: Natural Earth, Admin 0 – Countries, 1:10m, point-of-view Ukraine (`ne_10m_admin_0_countries_ukr`), версія 5.2.0-pre, https://www.naturalearthdata.com/ (файл: https://github.com/nvkelso/natural-earth-vector/blob/master/geojson/ne_10m_admin_0_countries_ukr.geojson). Ліцензія: **public domain** («Made with Natural Earth. Free vector and raster map data @ naturalearthdata.com»).
