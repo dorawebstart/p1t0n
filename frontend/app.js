@@ -13,6 +13,9 @@
   var MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
   // Inferno-like, perceptually uniform, colour-blind safe sequential scale (9 steps).
+  // Soft map dot: [distance from centre as share of the radius, opacity]. A smooth bell, no hard edge
+  // between the core and the halo, so each dot reads as one glowing spot.
+  var SOFT_DOT = [[0, 1], [0.18, 0.97], [0.35, 0.82], [0.5, 0.58], [0.65, 0.34], [0.8, 0.14], [0.92, 0.04], [1, 0]];
   var PALETTE = ['#1b0c41', '#420a68', '#6a176e', '#932667', '#bc3754', '#dd513a', '#f37819', '#fca50a', '#f6d746'];
   var NODATA_COLOR = 'rgba(255,255,255,0.04)';
   var ANOMALY_Z = 2;
@@ -908,16 +911,25 @@
           if (lat > nw.lat || lat + deg < se.lat || lon > se.lng || lon + deg < nw.lng) continue;
           var p1 = map.project([lat + deg, lon], z).subtract(origin);
           var p2 = map.project([lat, lon + deg], z).subtract(origin);
-          ctx.fillStyle = paletteAt(span > 0 ? (Math.log(n) - logLo) / span : 1);
+          var col = paletteAt(span > 0 ? (Math.log(n) - logLo) / span : 1);   // "rgb(r,g,b)"
+          ctx.fillStyle = col;
           var w = p2.x - p1.x, h = p2.y - p1.y;
           if (w < 6) {
             // Whole-world view: a cell is a few pixels, a filled square reads as a dot anyway.
             ctx.fillRect(Math.floor(p1.x), Math.floor(p1.y), Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)));
           } else {
-            // Zoomed in: one dot per 1° cell, centred in the cell, so the grid does not look like blocks.
+            // Zoomed in: one soft dot per 1° cell: a solid core that fades smoothly into a halo,
+            // so neighbours glow together but the map underneath stays visible.
+            var cx = p1.x + w / 2, cy = p1.y + h / 2, r = Math.min(w, h) * 0.5;
+            var rgb = col.slice(4, -1);
+            var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+            for (var s = 0; s < SOFT_DOT.length; s++) g.addColorStop(SOFT_DOT[s][0], 'rgba(' + rgb + ',' + SOFT_DOT[s][1] + ')');
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = g;
             ctx.beginPath();
-            ctx.arc(p1.x + w / 2, p1.y + h / 2, Math.min(w, h) * 0.42, 0, 2 * Math.PI);
+            ctx.arc(cx, cy, r, 0, 2 * Math.PI);
             ctx.fill();
+            ctx.globalAlpha = 0.88;
           }
         }
         return tile;
