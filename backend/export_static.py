@@ -155,20 +155,22 @@ def world_calendars(grid_path: Path, cc_path: Path):
 
 
 def world_cells(grid_path: Path) -> dict:
-    """Harmonized hotspots per 1° cell and month for the world map: {'YYYY-MM': [[lat, lon, count], ...]}.
-    lat/lon = south-west corner of the 1° cell. Sum of all cells of a month = WORLD calendar of that month."""
+    """Hotspots per 1° cell and month for the world map:
+    {'YYYY-MM': [[lat, lon, harmonized, modis, viirs], ...]} (modis = Terra+Aqua raw, viirs = Suomi NPP raw).
+    lat/lon = south-west corner of the 1° cell. Sum of harmonized over a month = WORLD calendar of that month."""
+    cols = ["harmonized_count", "modis_count", "viirs_count"]
     parts = []
-    for chunk in pd.read_csv(grid_path, usecols=["cell_id", "year", "month", "harmonized_count"], chunksize=2_000_000):
+    for chunk in pd.read_csv(grid_path, usecols=["cell_id", "year", "month"] + cols, chunksize=2_000_000):
         ll = chunk["cell_id"].str.split("_", expand=True).astype(float)
         chunk["la"] = np.floor(ll[0]).astype(int)
         chunk["lo"] = np.floor(ll[1]).astype(int)
-        parts.append(chunk.groupby(["year", "month", "la", "lo"])["harmonized_count"].sum().reset_index())
-    g = pd.concat(parts).groupby(["year", "month", "la", "lo"], as_index=False)["harmonized_count"].sum()
-    g = g[g["harmonized_count"] > 0]
+        parts.append(chunk.groupby(["year", "month", "la", "lo"])[cols].sum().reset_index())
+    g = pd.concat(parts).groupby(["year", "month", "la", "lo"], as_index=False)[cols].sum()
+    g = g[(g[cols] > 0).any(axis=1)]
     out = {}
     for (y, m), d in g.groupby(["year", "month"]):
-        out[f"{y}-{m:02d}"] = [[int(a), int(b), round(float(c), 1)] for a, b, c in
-                               zip(d["la"], d["lo"], d["harmonized_count"])]
+        out[f"{y}-{m:02d}"] = [[int(a), int(b), round(float(h), 1), int(round(mo)), int(round(v))] for a, b, h, mo, v in
+                               zip(d["la"], d["lo"], d["harmonized_count"], d["modis_count"], d["viirs_count"])]
     return out
 
 

@@ -1520,6 +1520,13 @@ body {
    does not jump between right and left when the Ukraine-points tools appear. */
 .map-card .card-header { flex-direction: column; align-items: stretch; }
 .map-card .map-tools { justify-content: flex-start; gap: 8px 16px; }
+/* Zoom readout + reset view, under Leaflet's +/- buttons */
+.leaflet-bar.zoom-info { background: #fff; display: flex; flex-direction: column; align-items: center; }
+.leaflet-bar.zoom-info a.zoom-reset { font-size: 18px; line-height: 30px; color: #111; }
+.leaflet-bar.zoom-info .zoom-level {
+  font: 600 11px/1 var(--font-mono, monospace); color: #111; padding: 4px 2px 5px;
+  border-top: 1px solid #ccc; width: 100%; text-align: center; white-space: nowrap;
+}
 .map-tools-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .map-note {
   font-size: 0.82rem;

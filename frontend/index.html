@@ -492,6 +492,14 @@
                 </div>
                 <span class="helper">What the map draws.</span>
               </div>
+              <div class="control-group" id="cells-tools">
+                <div class="segmented-control" id="cells-series-toggle" role="group" aria-label="Which counts the world cells show">
+                  <button type="button" class="seg-btn active" data-series="harmonized" aria-pressed="true" title="MODIS translated to the Suomi NPP scale (2000–2012), real Suomi NPP after">Harmonized</button>
+                  <button type="button" class="seg-btn" data-series="modis" aria-pressed="false" title="Raw MODIS hotspots, Terra + Aqua">MODIS</button>
+                  <button type="button" class="seg-btn" data-series="viirs" aria-pressed="false" title="Raw VIIRS hotspots, Suomi NPP (from 2012)">VIIRS (SNPP)</button>
+                </div>
+                <span class="helper">Which counts colour the cells (same switch as the calendar).</span>
+              </div>
               <div class="control-group" id="points-tools">
                 <div class="map-tools-row">
                   <div class="segmented-control" id="points-toggle" role="group" aria-label="Which hotspots to show">
@@ -505,13 +513,13 @@
               </div>
             </div>
           </div>
-          <p class="helper helper-block">The map follows the month selected in the calendar. <strong>World cells (1°)</strong>: harmonized hotspot counts (Suomi NPP scale) per 1° × 1° cell for the whole world, 2000–2025; click a cell for its number. <strong>Ukraine points</strong>: individual MODIS and VIIRS hotspots in Ukraine for the months listed in the status line; click a point for its details. Zoom with a two-finger pinch, Ctrl + scroll or the +/− buttons.</p>
+          <p class="helper helper-block">The map follows the month selected in the calendar. <strong>World cells (1°)</strong>: hotspot counts per 1° × 1° cell for the whole world, 2000–2025 — harmonized (Suomi NPP scale), raw MODIS or raw VIIRS; click a cell for its numbers. <strong>Ukraine points</strong>: individual MODIS and VIIRS hotspots in Ukraine for the months listed in the status line; click a point for its details. Zoom with a two-finger pinch, Ctrl + scroll or the +/− buttons.</p>
           <p class="map-note" id="map-note" role="status" hidden></p>
 
           <div id="map-block" class="map-wrapper">
             <div id="map"></div>
             <div class="map-legend map-legend-cells" id="legend-cells" hidden>
-              <div class="legend-title">Harmonized hotspots per 1° cell</div>
+              <div class="legend-title" id="cells-legend-title">Harmonized hotspots per 1° cell</div>
               <div class="cells-gradient" id="cells-gradient"></div>
               <div class="cells-ticks" id="cells-ticks"></div>
               <div class="legend-sub" id="cells-sub">Log scale</div>
