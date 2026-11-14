@@ -325,8 +325,9 @@
       });
       select.appendChild(og);
     });
-    var hasUKR = state.regions.some(function (r) { return r.id === 'UKR'; });
-    state.regionId = hasUKR ? 'UKR' : state.regions[0].id;
+    // The site opens on the whole world (the product is global); Ukraine is one click away.
+    var has = function (id) { return state.regions.some(function (r) { return r.id === id; }); };
+    state.regionId = has('WORLD') ? 'WORLD' : (has('UKR') ? 'UKR' : state.regions[0].id);
     select.value = state.regionId;
   }
 
@@ -811,17 +812,59 @@
       $('map-unavailable').hidden = false;
       return;
     }
-    map = L.map('map', { center: [20, 10], zoom: 2, minZoom: 1, maxZoom: 14, zoomSnap: 0.5, scrollWheelZoom: false, worldCopyJump: true });
-    // Trackpad pinch arrives as wheel + ctrlKey (Ctrl + mouse wheel too): zoom the map, not the page.
-    // Plain wheel keeps scrolling the page. Touch pinch on phones is Leaflet's own touchZoom.
+    map = L.map('map', { center: [20, 10], zoom: 2, minZoom: 1, maxZoom: 14, zoomSnap: 0.25, zoomDelta: 0.5, scrollWheelZoom: false, worldCopyJump: true });
+    // Trackpad pinch arrives as many small wheel events with ctrlKey (Ctrl + mouse wheel too): zoom the
+    // map, not the page. Small deltas are accumulated so a slow pinch still zooms in 0.25 steps
+    // (a single event alone would be snapped back). Plain wheel keeps scrolling the page.
+    // Touch pinch on phones is Leaflet's own touchZoom.
+    var pinchAcc = 0;
+    function zoomBy(dz, pt) {
+      var z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), map.getZoom() + dz));
+      if (z !== map.getZoom()) map.setZoomAround(pt, z, { animate: false });
+    }
     map.getContainer().addEventListener('wheel', function (e) {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      var dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-      var z = map.getZoom() - dy * 0.01;
-      z = Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), z));
-      map.setZoomAround(map.mouseEventToContainerPoint(e), z, { animate: false });
+      var dy = e.deltaMode === 1 ? e.deltaY * 16 : (e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY);
+      pinchAcc += -dy * 0.01;
+      var steps = pinchAcc > 0 ? Math.floor(pinchAcc / 0.25) : Math.ceil(pinchAcc / 0.25);
+      if (steps !== 0) {
+        pinchAcc -= steps * 0.25;
+        zoomBy(steps * 0.25, map.mouseEventToContainerPoint(e));
+      }
     }, { passive: false });
+    // Safari (macOS) sends pinch as gesture events: zoom the map instead of the page.
+    var gestureStartZoom = null;
+    map.getContainer().addEventListener('gesturestart', function (e) { e.preventDefault(); gestureStartZoom = map.getZoom(); });
+    map.getContainer().addEventListener('gesturechange', function (e) {
+      e.preventDefault();
+      if (gestureStartZoom === null || !e.scale) return;
+      var target = Math.round((gestureStartZoom + Math.log2(e.scale)) * 4) / 4;
+      zoomBy(target - map.getZoom(), map.getSize().divideBy(2));
+    });
+    map.getContainer().addEventListener('gestureend', function (e) { e.preventDefault(); gestureStartZoom = null; });
+    // Zoom level readout and "reset view" under the +/- buttons.
+    var ZoomInfo = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: function () {
+        var box = L.DomUtil.create('div', 'leaflet-bar zoom-info');
+        var btn = L.DomUtil.create('a', 'zoom-reset', box);
+        btn.href = '#';
+        btn.setAttribute('role', 'button');
+        btn.title = 'Reset view to the selected zone';
+        btn.setAttribute('aria-label', 'Reset map view');
+        btn.textContent = '⟲';
+        var lvl = L.DomUtil.create('span', 'zoom-level', box);
+        lvl.title = 'Current zoom level';
+        function upd() { lvl.textContent = 'z ' + (Math.round(map.getZoom() * 4) / 4).toString(); }
+        map.on('zoomend', upd);
+        upd();
+        L.DomEvent.disableClickPropagation(box);
+        L.DomEvent.on(btn, 'click', function (ev) { L.DomEvent.preventDefault(ev); fitMap(true); });
+        return box;
+      }
+    });
+    new ZoomInfo().addTo(map);
     map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
     canvasRenderer = L.canvas({ padding: 0.5 });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -857,7 +900,7 @@
         var logLo = Math.log(c.lo), span = Math.log(c.hi) - logLo;
         ctx.globalAlpha = 0.88;
         for (var i = 0; i < c.list.length; i++) {
-          var lat = c.list[i][0], lon = c.list[i][1], n = c.list[i][2];
+          var lat = c.list[i][0], lon = c.list[i][1], n = c.list[i][c.idx];
           if (lat > nw.lat || lat + deg < se.lat || lon > se.lng || lon + deg < nw.lng) continue;
           var p1 = map.project([lat + deg, lon], z).subtract(origin);
           var p2 = map.project([lat, lon + deg], z).subtract(origin);
@@ -875,17 +918,19 @@
     var deg = state.cells.deg;
     var ll = e.latlng.wrap();
     var lat = Math.floor(ll.lat / deg) * deg, lon = Math.floor(ll.lng / deg) * deg;
-    var n = state.cells.byKey[lat + '_' + lon];
+    var row = state.cells.byKey[lat + '_' + lon];
+    var n = row ? row[state.cells.idx] : null;
     var box = document.createElement('div');
     box.className = 'popup-box';
     function ns(v, pos, neg) { return Math.abs(v) + '°' + (v >= 0 ? pos : neg); }
     var line1 = document.createElement('div');
     line1.textContent = ns(lat, 'N', 'S') + '..' + ns(lat + deg, 'N', 'S') + ', ' + ns(lon, 'E', 'W') + '..' + ns(lon + deg, 'E', 'W');
     var line2 = document.createElement('div');
-    line2.textContent = (isNum(n) ? fmtInt(n) + ' hotspots' : 'No hotspots recorded') + ' · ' + monthLabel(state.cells.month);
+    line2.textContent = (isNum(n) && n > 0 ? fmtInt(n) + ' hotspots' : 'No hotspots recorded') + ' · ' + monthLabel(state.cells.month);
     var line3 = document.createElement('div');
     line3.className = 'popup-sub';
-    line3.textContent = 'Harmonized count, Suomi NPP scale';
+    line3.textContent = SERIES[state.cells.series].short +
+      (row && row.length >= 5 ? ' · harmonized ' + fmtInt(row[2]) + ', MODIS ' + fmtInt(row[3]) + ', VIIRS ' + fmtInt(row[4]) : '');
     box.appendChild(line1); box.appendChild(line2); box.appendChild(line3);
     L.popup().setLatLng(e.latlng).setContent(box).openOn(map);
   }
@@ -928,6 +973,7 @@
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
     $('points-tools').hidden = layer !== 'ukraine';
+    $('cells-tools').hidden = layer !== 'world';
     $('legend-points').hidden = layer !== 'ukraine';
     $('legend-cells').hidden = layer !== 'world';
   }
@@ -972,33 +1018,41 @@
     API.getWorldCells(key).then(function (rows) {
       if (key !== state.selected || state.layer !== 'world') return;
       var deg = state.manifest && isNum(state.manifest.world_cell_deg) ? state.manifest.world_cell_deg : 1;
-      var list = Array.isArray(rows) ? rows.filter(function (r) {
-        return Array.isArray(r) && isNum(r[0]) && isNum(r[1]) && isNum(r[2]) && r[2] > 0;
+      // Row = [lat, lon, harmonized, modis, viirs]; the map draws the series chosen in the toggles.
+      var series = state.series, idx = { harmonized: 2, modis: 3, viirs: 4 }[series] || 2;
+      var all = Array.isArray(rows) ? rows.filter(function (r) {
+        return Array.isArray(r) && isNum(r[0]) && isNum(r[1]);
       }) : [];
+      var list = all.filter(function (r) { return isNum(r[idx]) && r[idx] > 0; });
+      var byKey = {};
+      all.forEach(function (r) { byKey[r[0] + '_' + r[1]] = r; });
       if (!list.length) {
         clearCells();
         renderCellsLegend(null);
-        setText('map-status', 'No data for ' + monthLabel(key) + '.');
+        var why = series === 'viirs' && key < '2012-02' ? ' — Suomi NPP VIIRS starts in January 2012' : '';
+        setText('map-title', 'World cells (1°) · ' + SERIES[series].short);
+        setText('map-status', 'No ' + SERIES[series].label.toLowerCase() + ' for ' + monthLabel(key) + why + '.');
         fitMap();
         return;
       }
-      var byKey = {}, lo = Infinity, hi = -Infinity, total = 0;
+      var lo = Infinity, hi = -Infinity, total = 0;
       list.forEach(function (r) {
-        byKey[r[0] + '_' + r[1]] = r[2];
-        if (r[2] < lo) lo = r[2];
-        if (r[2] > hi) hi = r[2];
-        total += r[2];
+        if (r[idx] < lo) lo = r[idx];
+        if (r[idx] > hi) hi = r[idx];
+        total += r[idx];
       });
       // Draw large counts last so they stay on top.
-      list.sort(function (a, b) { return a[2] - b[2]; });
-      state.cells = { list: list, byKey: byKey, lo: lo, hi: hi, deg: deg, month: key };
+      list.sort(function (a, b) { return a[idx] - b[idx]; });
+      state.cells = { list: list, byKey: byKey, lo: lo, hi: hi, deg: deg, month: key, idx: idx, series: series };
+      setText('map-title', 'World cells (1°) · ' + SERIES[series].short);
       if (map && cellsLayer) {
         if (!map.hasLayer(cellsLayer)) cellsLayer.addTo(map);
         else cellsLayer.redraw();
       }
       renderCellsLegend(state.cells);
-      setText('map-status', fmtInt(list.length) + ' cells with hotspots · ' + fmtInt(total) +
-        ' harmonized hotspots worldwide in ' + monthLabel(key) + '. Click a cell for its number.');
+      var what = { harmonized: 'harmonized hotspots (Suomi NPP scale)', modis: 'raw MODIS hotspots (Terra + Aqua)', viirs: 'raw VIIRS hotspots (Suomi NPP)' }[series];
+      setText('map-status', fmtInt(list.length) + ' cells with hotspots · ' + fmtInt(Math.round(total)) + ' ' +
+        what + ' worldwide in ' + monthLabel(key) + '. Click a cell for its numbers.');
       fitMap();
     });
   }
@@ -1006,6 +1060,7 @@
   function renderCellsLegend(c) {
     var grad = $('cells-gradient'), ticks = $('cells-ticks');
     ticks.textContent = '';
+    setText('cells-legend-title', { harmonized: 'Harmonized hotspots', modis: 'Raw MODIS hotspots', viirs: 'Raw VIIRS hotspots' }[state.series] + ' per 1° cell');
     if (!c) { grad.style.background = 'none'; setText('cells-sub', 'No data'); return; }
     var stops = [];
     for (var i = 0; i <= 10; i++) stops.push(paletteAt(i / 10) + ' ' + (i * 10) + '%');
@@ -1137,15 +1192,20 @@
     $('month-from').addEventListener('change', onRange);
     $('month-to').addEventListener('change', onRange);
 
-    var segBtns = document.querySelectorAll('#series-toggle .seg-btn');
-    Array.prototype.forEach.call(segBtns, function (btn) {
-      btn.addEventListener('click', function () {
-        Array.prototype.forEach.call(segBtns, function (b) { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
-        btn.classList.add('active');
-        btn.setAttribute('aria-pressed', 'true');
-        state.series = btn.getAttribute('data-series');
-        if (state.rows.length) renderCalendar();
+    // One series for the calendar and the world map: the two switches stay in sync.
+    var segBtns = document.querySelectorAll('#series-toggle .seg-btn, #cells-series-toggle .seg-btn');
+    function setSeries(s) {
+      state.series = s;
+      Array.prototype.forEach.call(segBtns, function (b) {
+        var on = b.getAttribute('data-series') === s;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+      if (state.rows.length) renderCalendar();
+      if (state.layer === 'world') { if (map) map.closePopup(); loadFires(); }
+    }
+    Array.prototype.forEach.call(segBtns, function (btn) {
+      btn.addEventListener('click', function () { setSeries(btn.getAttribute('data-series')); });
     });
 
     var ptBtns = document.querySelectorAll('#points-toggle .seg-btn');
