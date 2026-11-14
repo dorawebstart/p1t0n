@@ -1,6 +1,7 @@
 // Written with the assistance of Claude Code (AI); reviewed and run by the P1t0n data engineer.
 // Крок 1б. Дані за 2026 рік через FIRMS Area API (у річних CSV 2026 ще немає).
-// Пише data/raw/modis/modis_2026_Ukraine.csv і data/raw/viirs-snpp/viirs-snpp_2026_Ukraine.csv
+// Пише data/raw/modis/modis_2026_Ukraine.csv, data/raw/viirs-snpp/viirs-snpp_2026_Ukraine.csv
+// і data/raw/viirs-jpss1/viirs-jpss1_2026_Ukraine.csv
 // у тому самому форматі, що й річні файли, тож 02_build_fires.js підхоплює їх без змін.
 //
 // Запуск (ключ не зберігається у файлах):
@@ -45,6 +46,9 @@ const SENSORS = [
     header: 'latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight,type' },
   { name: 'VIIRS', sp: 'VIIRS_SNPP_SP', nrt: 'VIIRS_SNPP_NRT', end: SNPP_END < TODAY ? SNPP_END : TODAY, dir: 'viirs-snpp', file: 'viirs-snpp_2026_Ukraine.csv',
     header: 'latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight,type' },
+  // NOAA-20 — замінник Suomi NPP; потрібен, щоб ряд тривав після 02.11.2026
+  { name: 'VIIRS NOAA-20', sp: 'VIIRS_NOAA20_SP', nrt: 'VIIRS_NOAA20_NRT', end: TODAY, dir: 'viirs-jpss1', file: 'viirs-jpss1_2026_Ukraine.csv',
+    header: 'latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight,type' },
 ];
 
 const addDays = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
@@ -75,7 +79,8 @@ function parseCsv(text) {
 // --- Маска статичних джерел з історії (type=2) ---
 function buildStaticMask() {
   const cells = new Set();
-  for (const dir of ['modis', 'viirs-snpp']) {
+  for (const dir of ['modis', 'viirs-snpp', 'viirs-jpss1']) {
+    if (!fs.existsSync(path.join(RAW, dir))) continue;
     for (const f of fs.readdirSync(path.join(RAW, dir)).filter(f => f.endsWith('.csv') && !f.includes('2026'))) {
       const lines = fs.readFileSync(path.join(RAW, dir, f), 'utf8').split(/\r?\n/);
       const h = lines[0].split(','), iLat = h.indexOf('latitude'), iLon = h.indexOf('longitude'), iT = h.indexOf('type');
@@ -108,7 +113,10 @@ function isStatic(cells, lat, lon) {
     const spMax = avail[s.sp] && avail[s.sp].max >= YEAR_START ? avail[s.sp].max : null;
     const plan = [];
     if (spMax) plan.push({ src: s.sp, from: YEAR_START, to: spMax < s.end ? spMax : s.end });
-    const nrtFrom = spMax ? addDays(spMax, 1) : YEAR_START;
+    let nrtFrom = spMax ? addDays(spMax, 1) : YEAR_START;
+    // не просимо NRT раніше, ніж FIRMS його зберігає
+    const nrtMin = avail[s.nrt] && avail[s.nrt].min;
+    if (nrtMin && nrtMin > nrtFrom) { console.log(`  ${s.nrt} доступний лише з ${nrtMin}`); nrtFrom = nrtMin; }
     if (nrtFrom <= s.end) plan.push({ src: s.nrt, from: nrtFrom, to: s.end });
     console.log(`\n${s.name}: ` + plan.map(p => `${p.src} ${p.from}…${p.to}`).join(' + '));
 
