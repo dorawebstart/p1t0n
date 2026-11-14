@@ -10,6 +10,6 @@
 | `fires_v2_stats.json` | Дем'яненко Микола | `pipeline/02_build_fires.js` | те саме | 14.11.2026 |
 | `grid_monthly_UKR_v1.csv.gz` | Дем'яненко Микола | `pipeline/05_grid_monthly.js ukraine` | річні CSV FIRMS по Україні 2000–2025 (без 2026) | 14.11.2026 |
 | Drive: `processed/grid_monthly_v1.csv.gz` (світ) | Дем'яненко Микола | `pipeline/04_download_world.js` + `pipeline/05_grid_monthly.js watch` | FIRMS `<sensor>_<year>_all_countries.zip` (SP): modis 2000–2025, viirs-snpp 2012–2025, viirs-jpss1 2018–2025 | у роботі — посилання: TODO після заливки |
-| Drive: `processed/cell_country.csv` (`cell_id, iso3, region_id`) | Дем'яненко Микола | `pipeline/06_cell_country.js` | клітинки `grid_monthly` (світ + Україна); Natural Earth Admin 0 1:10m POV Ukraine 5.2.0-pre (public domain); geoBoundaries UKR ADM1 | у роботі — посилання: TODO після заливки |
+| Drive: `processed/cell_country.csv` (`cell_id, iso3, region_id`) | Дем'яненко Микола | `pipeline/06_cell_country.js` | клітинки `grid_monthly` (світ + Україна); Natural Earth Admin 0 1:10m POV Ukraine 5.2.0-pre (public domain); geoBoundaries UKR ADM1 | 14.11.2026 — [Google Drive](https://drive.google.com/file/d/18YVk8iaIb3HNo8Y8Osrtf6focQKpWv1n/view?usp=sharing) |
 | `regions.json` | Дем'яненко Микола | `pipeline/02_build_fires.js` | geoBoundaries UKR ADM1 (OSM, ODbL), build 12.12.2023 | 14.11.2026 |
 | `regions.geojson` | Дем'яненко Микола | `pipeline/02_build_fires.js` | geoBoundaries UKR ADM1 (OSM, ODbL), build 12.12.2023 | 14.11.2026 |
