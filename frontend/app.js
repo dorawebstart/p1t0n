@@ -40,12 +40,20 @@
     fireMonths: null,  // array of 'YYYY-MM' or null when unknown
     fires: [],         // points currently on the map (after filters)
     pointsFilter: 'all',
-    scale: null
+    scale: null,
+    worldMonths: null, // months that have a world_cells file, or null when unknown
+    layerPref: 'world',// layer the user asked for: 'world' | 'ukraine'
+    layer: null,       // layer actually drawn
+    cells: null,       // {list: [[lat, lon, count]], byKey: {}, lo, hi, month}
+    lastFit: null
   };
 
   var map = null;
   var firesLayer = null;
+  var cellsLayer = null;
   var canvasRenderer = null;
+  var bgPaused = false; // the background globe stops rendering while the 3D chart is on screen
+  var WORLD_VIEW = [[-60, -180], [75, 180]];
 
   /* ---------- small helpers ---------- */
 
@@ -60,6 +68,27 @@
     return v.toLocaleString('en-US', { maximumFractionDigits: d == null ? 2 : d, minimumFractionDigits: 0 });
   }
   function fmtZ(v) { return isNum(v) ? (v > 0 ? '+' : '') + v.toFixed(2) : 'n/a'; }
+  // Compact numbers for axes: 950, 12k, 1.6M
+  function fmtCompact(v) {
+    if (!isNum(v)) return '';
+    var a = Math.abs(v);
+    if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+    if (a >= 1e3) return (v / 1e3).toFixed(a >= 1e4 ? 0 : 1).replace(/\.0$/, '') + 'k';
+    return String(Math.round(v * 100) / 100);
+  }
+  // Interpolate the inferno palette at t in [0, 1].
+  function paletteAt(t) {
+    t = Math.max(0, Math.min(1, isNum(t) ? t : 0));
+    var n = PALETTE.length - 1;
+    var i = Math.min(n - 1, Math.floor(t * n));
+    var f = t * n - i;
+    var a = hexRgb(PALETTE[i]), b = hexRgb(PALETTE[i + 1]);
+    return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * f) + ',' + Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ')';
+  }
+  function hexRgb(h) {
+    var v = parseInt(h.slice(1), 16);
+    return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+  }
   function monthLabel(key) {
     if (!key) return '—';
     var p = key.split('-');
@@ -192,7 +221,6 @@
     safe(initBackground);
     safe(initSpotlightCards);
     safe(initScrollSpy);
-    safe(initProblemFigure);
     safe(initMap);
     bindEvents();
     loadAll();
@@ -208,12 +236,20 @@
       showCalendarEmpty('Data module (api.js) could not be loaded.');
       return;
     }
+    // Charts of the Problem and Method sections load on their own; a missing file only hides that chart.
+    safe(initRawChart);
+    safe(initValidationChart);
+    safe(function () { responsiveChart($('chart-noise'), drawNoiseChart); });
+    API.getCalendar('UKR').then(function (rows) { safe(function () { initAugustChart(rows); }); });
+
     Promise.all([API.getManifest(), API.getRegions(), API.getMetrics(), API.getCoefficients()])
       .then(function (res) {
         var manifest = res[0], regions = res[1];
         state.manifest = manifest;
         applyManifest(manifest);
         renderMetrics(res[2]);
+        state.metrics = res[2];
+        safe(updateValidationBadge);
         renderCoefficients(res[3]);
         setupRegions(regions);
         return loadCalendar();
@@ -235,6 +271,9 @@
     } else {
       var d = m.generated_at ? String(m.generated_at).slice(0, 10) : '';
       setStatus('live', 'Pipeline data' + (d ? ' · ' + d : ''));
+    }
+    if (Array.isArray(m.world_cell_months)) {
+      state.worldMonths = m.world_cell_months.filter(function (s) { return /^\d{4}-\d{2}$/.test(s); }).sort();
     }
     if (Array.isArray(m.fire_months)) {
       state.fireMonths = m.fire_months.filter(function (s) { return /^\d{4}-\d{2}$/.test(s); }).sort();
@@ -266,11 +305,25 @@
       select.disabled = true;
       return;
     }
-    state.regions.forEach(function (r) {
-      var opt = document.createElement('option');
-      opt.value = r.id;
-      opt.textContent = r.name || r.id;
-      select.appendChild(opt);
+    // Groups: Ukraine, Ukrainian oblasts, World & countries (World first, then A–Z by name).
+    function byName(a, b) { return String(a.name || a.id).localeCompare(String(b.name || b.id), 'en'); }
+    var ua = state.regions.filter(function (r) { return r.id === 'UKR'; });
+    var oblasts = state.regions.filter(function (r) { return r.id.indexOf('UKR-') === 0; }).sort(byName);
+    var world = state.regions.filter(function (r) { return r.id === 'WORLD'; });
+    var countries = state.regions.filter(function (r) {
+      return r.id !== 'UKR' && r.id !== 'WORLD' && r.id.indexOf('UKR-') !== 0;
+    }).sort(byName);
+    [['Ukraine', ua], ['Ukrainian oblasts', oblasts], ['World & countries', world.concat(countries)]].forEach(function (g) {
+      if (!g[1].length) return;
+      var og = document.createElement('optgroup');
+      og.label = g[0];
+      g[1].forEach(function (r) {
+        var opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = r.name || r.id;
+        og.appendChild(opt);
+      });
+      select.appendChild(og);
     });
     var hasUKR = state.regions.some(function (r) { return r.id === 'UKR'; });
     state.regionId = hasUKR ? 'UKR' : state.regions[0].id;
@@ -723,6 +776,8 @@
     if (!list.length) {
       table.hidden = true;
       missing.hidden = false;
+      var cc = $('chart-coef');
+      if (cc && cc.parentNode) cc.parentNode.hidden = true;
       return;
     }
     list.sort(function (a, b) { return a.month - b.month; });
@@ -742,6 +797,7 @@
     });
     table.hidden = false;
     missing.hidden = true;
+    safe(function () { drawCoefChart(list); });
   }
 
   /* ---------- map ---------- */
@@ -752,7 +808,7 @@
       $('map-unavailable').hidden = false;
       return;
     }
-    map = L.map('map', { center: [48.4, 31.2], zoom: 5, minZoom: 2, maxZoom: 14, scrollWheelZoom: false });
+    map = L.map('map', { center: [20, 10], zoom: 2, minZoom: 1, maxZoom: 14, zoomSnap: 0.5, scrollWheelZoom: false, worldCopyJump: true });
     map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
     canvasRenderer = L.canvas({ padding: 0.5 });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -761,65 +817,243 @@
       className: 'dark-map-tiles'
     }).addTo(map);
     firesLayer = L.layerGroup().addTo(map);
+    cellsLayer = createCellsLayer();
+    map.on('click', onMapClick);
     var t = null;
     window.addEventListener('resize', function () {
       clearTimeout(t);
-      t = setTimeout(function () { map.invalidateSize(); fitRegion(); }, 200);
+      t = setTimeout(function () { map.invalidateSize(); fitMap(true); }, 200);
     });
   }
 
-  function fitRegion() {
+  // World cells drawn on canvas tiles: each tile draws only the cells it covers, so ~9k cells stay smooth.
+  function createCellsLayer() {
+    var Layer = L.GridLayer.extend({
+      createTile: function (coords) {
+        var tile = document.createElement('canvas');
+        var size = this.getTileSize();
+        tile.width = size.x;
+        tile.height = size.y;
+        var c = state.cells;
+        if (!c || !c.list.length) return tile;
+        var ctx = tile.getContext('2d');
+        var origin = coords.scaleBy(size);
+        var z = coords.z;
+        var nw = map.unproject(origin, z), se = map.unproject(origin.add(size), z);
+        var deg = c.deg;
+        var logLo = Math.log(c.lo), span = Math.log(c.hi) - logLo;
+        ctx.globalAlpha = 0.88;
+        for (var i = 0; i < c.list.length; i++) {
+          var lat = c.list[i][0], lon = c.list[i][1], n = c.list[i][2];
+          if (lat > nw.lat || lat + deg < se.lat || lon > se.lng || lon + deg < nw.lng) continue;
+          var p1 = map.project([lat + deg, lon], z).subtract(origin);
+          var p2 = map.project([lat, lon + deg], z).subtract(origin);
+          ctx.fillStyle = paletteAt(span > 0 ? (Math.log(n) - logLo) / span : 1);
+          ctx.fillRect(Math.floor(p1.x), Math.floor(p1.y), Math.max(1, Math.ceil(p2.x - p1.x)), Math.max(1, Math.ceil(p2.y - p1.y)));
+        }
+        return tile;
+      }
+    });
+    return new Layer({ pane: 'overlayPane', updateWhenZooming: false, keepBuffer: 2 });
+  }
+
+  function onMapClick(e) {
+    if (state.layer !== 'world' || !state.cells) return;
+    var deg = state.cells.deg;
+    var ll = e.latlng.wrap();
+    var lat = Math.floor(ll.lat / deg) * deg, lon = Math.floor(ll.lng / deg) * deg;
+    var n = state.cells.byKey[lat + '_' + lon];
+    var box = document.createElement('div');
+    box.className = 'popup-box';
+    function ns(v, pos, neg) { return Math.abs(v) + '°' + (v >= 0 ? pos : neg); }
+    var line1 = document.createElement('div');
+    line1.textContent = ns(lat, 'N', 'S') + '..' + ns(lat + deg, 'N', 'S') + ', ' + ns(lon, 'E', 'W') + '..' + ns(lon + deg, 'E', 'W');
+    var line2 = document.createElement('div');
+    line2.textContent = (isNum(n) ? fmtInt(n) + ' hotspots' : 'No hotspots recorded') + ' · ' + monthLabel(state.cells.month);
+    var line3 = document.createElement('div');
+    line3.className = 'popup-sub';
+    line3.textContent = 'Harmonized count, Suomi NPP scale';
+    box.appendChild(line1); box.appendChild(line2); box.appendChild(line3);
+    L.popup().setLatLng(e.latlng).setContent(box).openOn(map);
+  }
+
+  function boundsFor(id) {
+    if (id === 'WORLD') return WORLD_VIEW;
+    var r = regionById(id);
+    var bbox = r && Array.isArray(r.bbox) && r.bbox.length === 4 ? r.bbox : null;
+    if (!bbox || !bbox.every(isNum)) return null;
+    function cl(v) { return Math.max(-85, Math.min(85, v)); }
+    return [[cl(bbox[1]), bbox[0]], [cl(bbox[3]), bbox[2]]];
+  }
+
+  // Fit when the region or the drawn layer changed (or on resize), not on every month click.
+  function fitMap(force) {
     if (!map) return;
     map.invalidateSize();
     var size = map.getSize();
     if (!size.x || !size.y) return;
-    var r = regionById(state.regionId);
     var isUA = state.regionId && state.regionId.indexOf('UKR') === 0;
-    var bbox = isUA && r && Array.isArray(r.bbox) && r.bbox.length === 4 ? r.bbox : (regionById('UKR') || {}).bbox;
-    if (Array.isArray(bbox) && bbox.length === 4) {
-      map.fitBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]], { padding: [10, 10], animate: !reduceMotion });
-    }
+    // Ukraine points are only in Ukraine: for another region, show Ukraine instead of an empty view.
+    var target = state.layer === 'ukraine' && !isUA ? 'UKR' : state.regionId;
+    var key = target + '|' + state.layer;
+    if (!force && key === state.lastFit) return;
+    var b = boundsFor(target);
+    if (!b) return;
+    state.lastFit = key;
+    map.fitBounds(b, { padding: [10, 10], animate: !reduceMotion });
   }
 
+  function worldAvailable(key) {
+    return !!(key && state.worldMonths && state.worldMonths.indexOf(key) !== -1);
+  }
+
+  function setLayerButtons(layer) {
+    var btns = document.querySelectorAll('#layer-toggle .seg-btn');
+    Array.prototype.forEach.call(btns, function (b) {
+      var on = b.getAttribute('data-layer') === layer;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    $('points-tools').hidden = layer !== 'ukraine';
+    $('legend-points').hidden = layer !== 'ukraine';
+    $('legend-cells').hidden = layer !== 'world';
+  }
+
+  function showMapNote(text) {
+    var n = $('map-note');
+    n.textContent = text || '';
+    n.hidden = !text;
+  }
+
+  function worldRangeText() {
+    var w = state.worldMonths;
+    return w && w.length ? w[0].slice(0, 4) + '–' + w[w.length - 1].slice(0, 4) : 'no months yet';
+  }
+
+  // Entry point used by the calendar: redraw the map for the selected month.
   function loadFires() {
+    var key = state.selected;
+    var layer = state.layerPref === 'world' && worldAvailable(key) ? 'world' : 'ukraine';
+    if (state.layerPref === 'world' && key && !worldAvailable(key)) {
+      showMapNote('World cells are available for ' + worldRangeText() + '; ' + key.slice(0, 4) +
+        (isPrelim(key) ? ' shows Ukraine points (preliminary).' : ' shows Ukraine points where available.'));
+    } else {
+      showMapNote('');
+    }
+    state.layer = layer;
+    setLayerButtons(layer);
+    if (layer === 'world') loadCells(key);
+    else loadPoints(key);
+  }
+
+  function clearCells() {
+    state.cells = null;
+    if (map && cellsLayer && map.hasLayer(cellsLayer)) map.removeLayer(cellsLayer);
+  }
+
+  function loadCells(key) {
     state.fires = [];
     if (firesLayer) firesLayer.clearLayers();
-    var key = state.selected;
+    setText('map-title', 'World cells (1°)');
+    setText('map-status', 'Loading world cells for ' + key + '…');
+    API.getWorldCells(key).then(function (rows) {
+      if (key !== state.selected || state.layer !== 'world') return;
+      var deg = state.manifest && isNum(state.manifest.world_cell_deg) ? state.manifest.world_cell_deg : 1;
+      var list = Array.isArray(rows) ? rows.filter(function (r) {
+        return Array.isArray(r) && isNum(r[0]) && isNum(r[1]) && isNum(r[2]) && r[2] > 0;
+      }) : [];
+      if (!list.length) {
+        clearCells();
+        renderCellsLegend(null);
+        setText('map-status', 'No data for ' + monthLabel(key) + '.');
+        fitMap();
+        return;
+      }
+      var byKey = {}, lo = Infinity, hi = -Infinity, total = 0;
+      list.forEach(function (r) {
+        byKey[r[0] + '_' + r[1]] = r[2];
+        if (r[2] < lo) lo = r[2];
+        if (r[2] > hi) hi = r[2];
+        total += r[2];
+      });
+      // Draw large counts last so they stay on top.
+      list.sort(function (a, b) { return a[2] - b[2]; });
+      state.cells = { list: list, byKey: byKey, lo: lo, hi: hi, deg: deg, month: key };
+      if (map && cellsLayer) {
+        if (!map.hasLayer(cellsLayer)) cellsLayer.addTo(map);
+        else cellsLayer.redraw();
+      }
+      renderCellsLegend(state.cells);
+      setText('map-status', fmtInt(list.length) + ' cells with hotspots · ' + fmtInt(total) +
+        ' harmonized hotspots worldwide in ' + monthLabel(key) + '. Click a cell for its number.');
+      fitMap();
+    });
+  }
+
+  function renderCellsLegend(c) {
+    var grad = $('cells-gradient'), ticks = $('cells-ticks');
+    ticks.textContent = '';
+    if (!c) { grad.style.background = 'none'; setText('cells-sub', 'No data'); return; }
+    var stops = [];
+    for (var i = 0; i <= 10; i++) stops.push(paletteAt(i / 10) + ' ' + (i * 10) + '%');
+    grad.style.background = 'linear-gradient(90deg, ' + stops.join(', ') + ')';
+    var logLo = Math.log(c.lo), span = Math.log(c.hi) - logLo;
+    var vals = [c.lo];
+    for (var p = Math.ceil(Math.log10(c.lo)); Math.pow(10, p) < c.hi; p++) {
+      var v = Math.pow(10, p);
+      if (v > c.lo) vals.push(v);
+    }
+    vals.push(c.hi);
+    vals.forEach(function (v, idx) {
+      var pos = span > 0 ? (Math.log(v) - logLo) / span : 1;
+      // skip powers of ten that would collide with the end labels
+      if (idx > 0 && idx < vals.length - 1 && (pos < 0.1 || pos > 0.86)) return;
+      var t = document.createElement('span');
+      t.className = 'cells-tick';
+      t.style.left = (pos * 100) + '%';
+      t.textContent = fmtCompact(v);
+      ticks.appendChild(t);
+    });
+    setText('cells-sub', 'Log scale · colour range of ' + monthLabel(c.month));
+  }
+
+  function loadPoints(key) {
+    clearCells();
+    state.fires = [];
+    if (firesLayer) firesLayer.clearLayers();
     var isUA = state.regionId && state.regionId.indexOf('UKR') === 0;
     var available = state.fireMonths && state.fireMonths.length ? state.fireMonths.join(', ') : 'none yet';
 
     setText('map-title', isUA ? regionName(state.regionId) + ' hotspots' : 'Ukraine hotspots');
-    if (!key) { setText('map-status', 'Select a month in the calendar.'); return; }
-    if (!isUA) {
-      setText('map-status', 'Point data exist for Ukraine only. Choose Ukraine or an oblast. Point data available for: ' + available + '.');
-      return;
-    }
+    if (!key) { setText('map-status', 'Select a month in the calendar.'); fitMap(); return; }
     if (state.fireMonths && state.fireMonths.indexOf(key) === -1) {
       setText('map-status', 'No point data for ' + key + '. Point data available for: ' + available + '.');
-      fitRegion();
+      fitMap();
       return;
     }
     setText('map-status', 'Loading points for ' + key + '…');
     var regionAtStart = state.regionId;
     API.getFires(key).then(function (pts) {
-      if (key !== state.selected || regionAtStart !== state.regionId) return;
+      if (key !== state.selected || regionAtStart !== state.regionId || state.layer !== 'ukraine') return;
       if (!Array.isArray(pts)) {
         setText('map-status', 'No point data for ' + key + '. Point data available for: ' + available + '.');
-        fitRegion();
+        fitMap();
         return;
       }
       var filtered = pts.filter(function (p) {
         if (!p || !isNum(p.lat) || !isNum(p.lon)) return false;
-        if (state.regionId !== 'UKR' && p.region_id !== state.regionId) return false;
+        // An oblast shows its own points; Ukraine or any non-Ukrainian region shows all of Ukraine.
+        if (isUA && state.regionId !== 'UKR' && p.region_id !== state.regionId) return false;
         if (state.pointsFilter !== 'all' && p.sensor !== state.pointsFilter) return false;
         return true;
       });
       state.fires = filtered;
       drawFires();
       var filterTxt = state.pointsFilter === 'all' ? 'MODIS + VIIRS' : state.pointsFilter;
-      setText('map-status', fmtInt(filtered.length) + ' hotspots (' + filterTxt + ') in ' + monthLabel(key) +
+      setText('map-status', fmtInt(filtered.length) + ' hotspots (' + filterTxt + ') in ' +
+        (isUA ? regionName(state.regionId) : 'Ukraine') + ', ' + monthLabel(key) +
         (isPrelim(key) ? ' — preliminary data' : '') + '.');
-      fitRegion();
+      fitMap();
     });
   }
 
@@ -912,6 +1146,15 @@
       });
     });
 
+    var layerBtns = document.querySelectorAll('#layer-toggle .seg-btn');
+    Array.prototype.forEach.call(layerBtns, function (btn) {
+      btn.addEventListener('click', function () {
+        state.layerPref = btn.getAttribute('data-layer');
+        if (map) map.closePopup();
+        loadFires();
+      });
+    });
+
     $('toggle-anomalies-only').addEventListener('change', function (e) {
       state.anomaliesOnly = e.target.checked;
       if (state.rows.length) renderCalendar();
@@ -925,16 +1168,672 @@
     window.addEventListener('scroll', hideTooltip, { passive: true });
   }
 
-  /* ---------- presentation extras (all optional) ---------- */
+  /* ---------- small SVG chart kit (all numbers come from the data files) ---------- */
 
-  function initProblemFigure() {
-    var img = $('problem-img');
-    var fig = $('problem-figure');
-    if (!img || !fig) return;
-    function hide() { fig.hidden = true; fig.parentNode.classList.add('no-figure'); }
-    if (img.complete && img.naturalWidth === 0) hide();
-    else img.addEventListener('error', hide);
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var COLOR_MODIS = '#0072B2';
+  var COLOR_SNPP = '#E69F00';
+
+  function svgEl(tag, attrs, parent) {
+    var el = document.createElementNS(SVGNS, tag);
+    if (attrs) for (var k in attrs) if (Object.prototype.hasOwnProperty.call(attrs, k)) el.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(el);
+    return el;
   }
+  function svgText(parent, x, y, text, cls, anchor) {
+    var t = svgEl('text', { x: x, y: y, 'class': cls || 'svg-label', 'text-anchor': anchor || 'start' }, parent);
+    t.textContent = text;
+    return t;
+  }
+  function svgTitle(parent, text) {
+    var t = svgEl('title', null, parent);
+    t.textContent = text;
+    return t;
+  }
+  function newSvg(w, h, label) {
+    var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, width: '100%', role: 'img', 'aria-label': label, 'class': 'svg-chart' });
+    svgTitle(svg, label);
+    return svg;
+  }
+  // 0 … a "nice" maximum, n steps.
+  function niceTicks(max, n) {
+    if (!isNum(max) || max <= 0) return [0, 1];
+    var raw = max / (n || 4);
+    var mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var f = raw / mag;
+    var step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+    var out = [];
+    for (var v = 0; v < max + step * 0.999; v += step) out.push(Math.round(v * 1e6) / 1e6);
+    return out;
+  }
+  function yGrid(svg, ticks, x0, x1, yOf, fmt) {
+    var g = svgEl('g', { 'class': 'svg-axis' }, svg);
+    ticks.forEach(function (t) {
+      var y = yOf(t);
+      svgEl('line', { x1: x0, x2: x1, y1: y, y2: y, 'class': 'svg-grid' }, g);
+      svgText(g, x0 - 6, y + 4, fmt ? fmt(t) : fmtCompact(t), 'svg-label', 'end');
+    });
+    return g;
+  }
+
+  // Draw at the container's real pixel width so text stays at its CSS size; redraw when the width changes.
+  function responsiveChart(container, draw) {
+    if (!container) return function () {};
+    var lastW = 0;
+    function render(force) {
+      var w = Math.round(container.clientWidth);
+      if (!w || (!force && w === lastW)) return;
+      lastW = w;
+      var svg = draw(w);
+      container.textContent = '';
+      if (svg) container.appendChild(svg);
+    }
+    render(true);
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(function () { render(false); }).observe(container);
+    } else {
+      window.addEventListener('resize', function () { render(false); });
+    }
+    return function () { render(true); };
+  }
+
+  function bindSegToggle(groupId, attr, onChange) {
+    var btns = document.querySelectorAll('#' + groupId + ' .seg-btn');
+    Array.prototype.forEach.call(btns, function (btn) {
+      btn.addEventListener('click', function () {
+        Array.prototype.forEach.call(btns, function (b) { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
+        btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
+        onChange(btn.getAttribute(attr));
+      });
+    });
+  }
+
+  /* ---------- Method 5: relative error 1/sqrt(N) ---------- */
+
+  function drawNoiseChart(w) {
+    var h = 200, ml = 46, mr = 14, mt = 14, mb = 36;
+    var svg = newSvg(w, h, 'Relative counting error 1/√N for N = 1 to 10,000 hotspots (log x axis)');
+    var maxLog = 4;
+    function x(n) { return ml + (Math.log10(n) / maxLog) * (w - ml - mr); }
+    function y(pct) { return mt + (1 - pct / 100) * (h - mt - mb); }
+    yGrid(svg, [0, 25, 50, 75, 100], ml, w - mr, y, function (t) { return t + ' %'; });
+    var ax = svgEl('g', { 'class': 'svg-axis' }, svg);
+    [1, 10, 100, 1000, 10000].forEach(function (n) {
+      svgEl('line', { x1: x(n), x2: x(n), y1: h - mb, y2: h - mb + 4, 'class': 'svg-tick' }, ax);
+      svgText(ax, x(n), h - mb + 17, n.toLocaleString('en-US'), 'svg-label', 'middle');
+    });
+    svgText(ax, w - mr, h - 4, 'N, hotspots in the month (log scale)', 'svg-label svg-muted', 'end');
+    var d = '';
+    for (var i = 0; i <= 120; i++) {
+      var n = Math.pow(10, (i / 120) * maxLog);
+      d += (i ? 'L' : 'M') + x(n).toFixed(1) + ',' + y(100 / Math.sqrt(n)).toFixed(1);
+    }
+    svgEl('path', { d: d, 'class': 'svg-line-ember' }, svg);
+    [10, 100, 1000].forEach(function (n) {
+      var pct = 100 / Math.sqrt(n);
+      var g = svgEl('g', null, svg);
+      svgEl('circle', { cx: x(n), cy: y(pct), r: 4.5, 'class': 'svg-dot-mark' }, g);
+      svgText(g, x(n), y(pct) - 10, '±' + Math.round(pct) + ' %', 'svg-label svg-strong', 'middle');
+      svgTitle(g, 'N = ' + n + ' hotspots → relative error ≈ ±' + pct.toFixed(1) + ' %');
+    });
+    return svg;
+  }
+
+  /* ---------- Method 6: one month of the Ukraine calendar ---------- */
+
+  function quantile(sorted, q) {
+    if (!sorted.length) return null;
+    var pos = (sorted.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+  }
+
+  function initAugustChart(rows) {
+    var box = $('chart-august');
+    if (!box) return;
+    var MONTH = 8;
+    var pts = (Array.isArray(rows) ? rows : []).filter(function (r) {
+      return r && r.month === MONTH && isNum(r.year) && isNum(r.harmonized_count);
+    }).sort(function (a, b) { return a.year - b.year; });
+    if (pts.length < 3) {
+      box.textContent = '';
+      var p = document.createElement('p');
+      p.className = 'empty-state';
+      p.textContent = 'No data';
+      box.appendChild(p);
+      return;
+    }
+    var vals = pts.map(function (r) { return r.harmonized_count; }).sort(function (a, b) { return a - b; });
+    var first = pts[0], last = pts[pts.length - 1];
+    function fromRows(field) {
+      for (var i = 0; i < pts.length; i++) if (isNum(pts[i][field])) return pts[i][field];
+      return null;
+    }
+    var med = fromRows('median_count');
+    if (!isNum(med)) med = median(vals);
+    var p25 = fromRows('p25_count'), p75 = fromRows('p75_count');
+    if (!isNum(p25) || !isNum(p75)) { p25 = quantile(vals, 0.25); p75 = quantile(vals, 0.75); }
+    var top = null;
+    pts.forEach(function (r) { if (isNum(r.anomaly) && (!top || Math.abs(r.anomaly) > Math.abs(top.anomaly))) top = r; });
+
+    setText('chart-august-title', 'Live example: ' + MONTHS_LONG[MONTH - 1] + ' in Ukraine, ' + first.year + '–' + last.year);
+    var note = 'One dot per year (harmonized count); band = 25th–75th percentile (' + fmtInt(p25) + '–' + fmtInt(p75) +
+      '); line = median (' + fmtInt(med) + ').';
+    if (top) note += ' Largest anomaly: ' + top.year + ', z = ' + fmtZ(top.anomaly) + '.';
+    if (isPrelim(ym(last.year, MONTH))) note += ' ' + last.year + ' is preliminary.';
+    setText('chart-august-note', note);
+
+    responsiveChart(box, function (w) {
+      var ml = 14, mr = 14, r = 5.5, gapY = 2 * r + 2;
+      var maxV = vals[vals.length - 1];
+      var ticks = niceTicks(maxV, w < 380 ? 3 : 5);
+      var xMax = ticks[ticks.length - 1];
+      function x(v) { return ml + (v / xMax) * (w - ml - mr); }
+      // simple beeswarm: put each dot on the nearest free row
+      var placed = [];
+      var order = pts.slice().sort(function (a, b) { return a.harmonized_count - b.harmonized_count; });
+      var maxLevel = 0;
+      order.forEach(function (row) {
+        var cx = x(row.harmonized_count);
+        for (var k = 0; k < 40; k++) {
+          var level = k === 0 ? 0 : (k % 2 ? (k + 1) / 2 : -k / 2);
+          var clash = placed.some(function (p) { return p.level === level && Math.abs(p.cx - cx) < 2 * r + 1; });
+          if (!clash) { placed.push({ row: row, cx: cx, level: level }); maxLevel = Math.max(maxLevel, Math.abs(level)); break; }
+        }
+      });
+      var labelSpace = 22;
+      var mid = labelSpace + 8 + maxLevel * gapY + r;
+      var axisY = mid + maxLevel * gapY + r + 10;
+      var h = axisY + 34;
+      var svg = newSvg(w, h, 'Harmonized August hotspot counts for Ukraine, one dot per year, with median and 25th–75th percentile band');
+      svgEl('rect', { x: x(p25), y: mid - maxLevel * gapY - r - 6, width: Math.max(1, x(p75) - x(p25)), height: 2 * (maxLevel * gapY + r + 6), 'class': 'svg-band' }, svg);
+      svgEl('line', { x1: x(med), x2: x(med), y1: labelSpace + 2, y2: axisY, 'class': 'svg-median' }, svg);
+      var medLabelRight = x(med) < w * 0.6;
+      svgText(svg, x(med) + (medLabelRight ? 5 : -5), labelSpace - 6, 'median ' + fmtCompact(med), 'svg-label svg-strong', medLabelRight ? 'start' : 'end');
+      var ax = svgEl('g', { 'class': 'svg-axis' }, svg);
+      svgEl('line', { x1: ml, x2: w - mr, y1: axisY, y2: axisY, 'class': 'svg-grid' }, ax);
+      ticks.forEach(function (t) {
+        svgEl('line', { x1: x(t), x2: x(t), y1: axisY, y2: axisY + 4, 'class': 'svg-tick' }, ax);
+        svgText(ax, x(t), axisY + 17, fmtCompact(t), 'svg-label', t === 0 ? 'start' : (t === xMax ? 'end' : 'middle'));
+      });
+      svgText(ax, w - mr, h - 2, 'hotspots in August (harmonized)', 'svg-label svg-muted', 'end');
+      placed.forEach(function (p) {
+        var isTop = top && p.row.year === top.year;
+        var c = svgEl('circle', { cx: p.cx, cy: mid + p.level * gapY, r: isTop ? r + 1.5 : r, 'class': isTop ? 'svg-dot-top' : 'svg-dot' }, svg);
+        svgTitle(c, 'August ' + p.row.year + ': ' + fmtInt(p.row.harmonized_count) + ' hotspots, z = ' + fmtZ(p.row.anomaly));
+      });
+      if (top) {
+        var tp = placed.filter(function (p) { return p.row.year === top.year; })[0];
+        if (tp) {
+          // label above the swarm, at the dot's x, with a short leader line
+          var right = tp.cx > w * 0.55;
+          var ly = mid + tp.level * gapY;
+          svgEl('line', { x1: tp.cx, x2: tp.cx, y1: labelSpace - 2, y2: ly - r - 2, 'class': 'svg-leader' }, svg);
+          svgText(svg, tp.cx + (right ? 4 : -4), labelSpace - 6, top.year + ' · z = ' + fmtZ(top.anomaly), 'svg-label svg-hl', right ? 'end' : 'start');
+        }
+      }
+      return svg;
+    });
+  }
+
+  /* ---------- Coefficients chart (next to the table) ---------- */
+
+  function drawCoefChart(list) {
+    return responsiveChart($('chart-coef'), function (w) {
+      // as tall as the table beside it (when side by side), so the card has no empty corner
+      var tbl = $('coef-table');
+      var side = tbl && tbl.offsetHeight && tbl.getBoundingClientRect().right < $('chart-coef').getBoundingClientRect().left;
+      var h = side ? Math.max(240, Math.min(520, tbl.offsetHeight - 34)) : Math.max(220, Math.min(320, Math.round(w * 0.6)));
+      var ml = 40, mr = 8, mt = 12, mb = 28;
+      var maxK = 0;
+      list.forEach(function (c) { [c.k_aqua, c.k_terra].forEach(function (v) { if (isNum(v) && v > maxK) maxK = v; }); });
+      var ticks = niceTicks(maxK, 4);
+      var yMax = ticks[ticks.length - 1];
+      var svg = newSvg(w, h, 'Monthly scale factors k Aqua and k Terra');
+      function y(v) { return mt + (1 - v / yMax) * (h - mt - mb); }
+      yGrid(svg, ticks, ml, w - mr, y, function (t) { return String(t); });
+      var gw = (w - ml - mr) / 12, bw = Math.max(3, gw * 0.34);
+      list.forEach(function (c) {
+        var gx = ml + (c.month - 1) * gw + gw / 2;
+        [['k_aqua', -1, 'svg-bar-aqua', 'k Aqua'], ['k_terra', 1, 'svg-bar-terra', 'k Terra']].forEach(function (s) {
+          var v = c[s[0]];
+          if (!isNum(v)) return;
+          var bx = s[1] < 0 ? gx - bw - 1 : gx + 1;
+          var b = svgEl('rect', { x: bx, y: y(v), width: bw, height: Math.max(0, y(0) - y(v)), rx: 2, 'class': s[2] }, svg);
+          svgTitle(b, MONTHS_LONG[c.month - 1] + ': ' + s[3] + ' = ' + v.toFixed(2));
+        });
+        svgText(svg, gx, h - mb + 16, w < 360 ? MONTHS[c.month - 1].charAt(0) : MONTHS[c.month - 1], 'svg-label', 'middle');
+      });
+      return svg;
+    });
+  }
+
+  /* ---------- Validation chart (2021–2025) ---------- */
+
+  var validation = { data: null, area: 'ukraine', redraw: null };
+
+  function initValidationChart() {
+    bindSegToggle('valid-toggle', 'data-area', function (area) {
+      validation.area = area;
+      updateValidationBadge();
+      if (validation.redraw) validation.redraw();
+    });
+    API.getValidation().then(function (data) {
+      validation.data = data;
+      validation.redraw = responsiveChart($('chart-valid'), drawValidation);
+    });
+  }
+
+  function updateValidationBadge() {
+    var b = $('valid-r2');
+    if (!b) return;
+    var m = state.metrics && state.metrics[validation.area];
+    b.textContent = m && isNum(m.r2) ? 'R² ' + m.r2.toFixed(2) : 'R² n/a';
+  }
+
+  function drawValidation(w) {
+    var rows = validation.data && Array.isArray(validation.data[validation.area]) ? validation.data[validation.area].filter(function (r) {
+      return r && isNum(r.year) && isNum(r.month);
+    }).sort(function (a, b) { return a.year - b.year || a.month - b.month; }) : [];
+    if (!rows.length) {
+      var p = document.createElement('p');
+      p.className = 'empty-state';
+      p.textContent = 'No data';
+      return p;
+    }
+    var h = w > 500 ? 380 : 260, ml = 46, mr = 10, mt = 12, mb = 30;
+    var maxV = 0;
+    rows.forEach(function (r) { ['snpp', 'modis_scaled', 'modis_raw'].forEach(function (f) { if (isNum(r[f]) && r[f] > maxV) maxV = r[f]; }); });
+    var ticks = niceTicks(maxV, 4);
+    var yMax = ticks[ticks.length - 1];
+    var area = validation.area === 'world' ? 'World' : 'Ukraine';
+    var svg = newSvg(w, h, area + ': monthly hotspot totals 2021–2025, real Suomi NPP vs MODIS translated vs raw MODIS');
+    var n = rows.length;
+    function x(i) { return ml + (n > 1 ? i / (n - 1) : 0.5) * (w - ml - mr); }
+    function y(v) { return mt + (1 - v / yMax) * (h - mt - mb); }
+    yGrid(svg, ticks, ml, w - mr, y);
+    rows.forEach(function (r, i) {
+      if (r.month === 1) {
+        svgEl('line', { x1: x(i), x2: x(i), y1: mt, y2: h - mb, 'class': 'svg-grid svg-grid-v' }, svg);
+        svgText(svg, x(i) + 3, h - mb + 16, String(r.year), 'svg-label');
+      }
+    });
+    function path(field) {
+      var d = '', pen = false;
+      rows.forEach(function (r, i) {
+        if (!isNum(r[field])) { pen = false; return; }
+        d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(r[field]).toFixed(1);
+        pen = true;
+      });
+      return d;
+    }
+    svgEl('path', { d: path('modis_raw'), 'class': 'svg-line-raw' }, svg);
+    svgEl('path', { d: path('snpp'), 'class': 'svg-line-snpp' }, svg);
+    svgEl('path', { d: path('modis_scaled'), 'class': 'svg-line-scaled' }, svg);
+    // invisible hover strips with the exact numbers
+    var sw = (w - ml - mr) / Math.max(1, n - 1);
+    rows.forEach(function (r, i) {
+      var hit = svgEl('rect', { x: x(i) - sw / 2, y: mt, width: sw, height: h - mt - mb, 'class': 'svg-hit' }, svg);
+      svgTitle(hit, MONTHS[r.month - 1] + ' ' + r.year + ' — Suomi NPP: ' + fmtInt(r.snpp) +
+        '; MODIS translated: ' + fmtInt(r.modis_scaled) + '; raw MODIS: ' + fmtInt(r.modis_raw));
+    });
+    return svg;
+  }
+
+  /* ---------- Problem: raw yearly counts, 3D bars (SVG fallback) ---------- */
+
+  var raw = { data: null, area: 'ukraine', view: null };
+
+  function rawSeries() {
+    var list = raw.data && Array.isArray(raw.data[raw.area]) ? raw.data[raw.area] : [];
+    return list.filter(function (r) { return r && isNum(r.year); }).sort(function (a, b) { return a.year - b.year; });
+  }
+  function hasViirs(r) { return isNum(r.viirs) && (r.viirs > 0 || isNum(r.ratio)); }
+  function rawReadout(r) {
+    if (!r) return 'Hover or tap a bar to read its numbers.';
+    return r.year + ' · MODIS ' + fmtInt(r.modis) + ' · Suomi NPP ' +
+      (hasViirs(r) ? fmtInt(r.viirs) : 'no data (starts 2012)') +
+      (isNum(r.ratio) ? ' · VIIRS / MODIS ' + fmtNum(r.ratio, 2) + '×' : '');
+  }
+  // First year with Suomi NPP counts (the "false jump" year), from the data.
+  function viirsStartYear(list) {
+    for (var i = 0; i < list.length; i++) if (hasViirs(list[i])) return list[i].year;
+    return null;
+  }
+
+  function initRawChart() {
+    var box = $('raw-chart');
+    if (!box) return;
+    bindSegToggle('raw-toggle', 'data-area', function (area) {
+      raw.area = area;
+      updateRawText();
+      if (raw.view) raw.view.update();
+    });
+    API.getRawSeries().then(function (data) {
+      raw.data = data;
+      box.textContent = '';
+      if (!rawSeries().length) {
+        var p = document.createElement('p');
+        p.className = 'empty-state';
+        p.textContent = 'No data';
+        box.appendChild(p);
+        return;
+      }
+      updateRawText();
+      var view = null;
+      if (!reduceMotion && typeof THREE !== 'undefined') {
+        try { view = createRaw3D(box); } catch (e) { view = null; if (window.console) console.warn('[P1t0n] 3D chart unavailable:', e); }
+      }
+      if (!view) {
+        box.textContent = '';
+        box.classList.add('is-flat');
+        view = createRawSVG(box);
+      }
+      raw.view = view;
+    });
+  }
+
+  function updateRawText() {
+    var list = rawSeries();
+    var name = raw.area === 'world' ? 'World' : 'Ukraine';
+    var span = list.length ? list[0].year + '–' + list[list.length - 1].year : '';
+    setText('raw-caption', 'Raw yearly hotspot counts, ' + name + ' ' + span + ': MODIS (Terra + Aqua) vs VIIRS Suomi NPP (NASA FIRMS). Not harmonized.');
+    var box = $('raw-chart');
+    if (box) box.setAttribute('aria-label', 'Raw yearly fire hotspot counts for ' + name + ', ' + span + ': MODIS (Terra + Aqua) and VIIRS Suomi NPP.');
+    var dl = document.querySelector('.raw-download');
+    if (dl) dl.textContent = raw.area === 'world' ? 'Download Ukraine figure (PNG)' : 'Download figure (PNG)';
+    setText('raw-readout', rawReadout(null));
+  }
+
+  function createRawSVG(box) {
+    var redraw = responsiveChart(box, function (w) {
+      var list = rawSeries();
+      var h = w < 500 ? 260 : 330, ml = 48, mr = 10, mt = 30, mb = 28;
+      var maxV = 0;
+      list.forEach(function (r) { [r.modis, r.viirs].forEach(function (v) { if (isNum(v) && v > maxV) maxV = v; }); });
+      var ticks = niceTicks(maxV, 4);
+      var yMax = ticks[ticks.length - 1];
+      var svg = newSvg(w, h, 'Raw yearly hotspot counts, MODIS and Suomi NPP');
+      function y(v) { return mt + (1 - v / yMax) * (h - mt - mb); }
+      yGrid(svg, ticks, ml, w - mr, y);
+      var gw = (w - ml - mr) / Math.max(1, list.length), bw = Math.max(2, gw * 0.36);
+      var start = viirsStartYear(list);
+      list.forEach(function (r, i) {
+        var gx = ml + i * gw + gw / 2;
+        if (r.year === start) {
+          svgEl('line', { x1: gx - gw / 2, x2: gx - gw / 2, y1: mt - 18, y2: h - mb, 'class': 'svg-marker' }, svg);
+          var right = gx < w * 0.6;
+          svgText(svg, gx - gw / 2 + (right ? 5 : -5), mt - 8, 'VIIRS starts → false jump if added up', 'svg-label svg-teal', right ? 'start' : 'end');
+        }
+        [['modis', -1, COLOR_MODIS, 'MODIS'], ['viirs', 1, COLOR_SNPP, 'Suomi NPP']].forEach(function (s) {
+          var v = r[s[0]];
+          if (!isNum(v) || v <= 0) return;
+          var b = svgEl('rect', { x: s[1] < 0 ? gx - bw - 0.5 : gx + 0.5, y: y(v), width: bw, height: Math.max(0, y(0) - y(v)), fill: s[2], rx: 1.5, 'class': 'svg-rawbar' }, svg);
+          svgTitle(b, r.year + ' · ' + s[3] + ': ' + fmtInt(v));
+          b.addEventListener('click', function () { setText('raw-readout', rawReadout(r)); });
+        });
+        if (i % 4 === 0) svgText(svg, gx, h - mb + 16, String(r.year), 'svg-label', 'middle');
+      });
+      return svg;
+    });
+    return { update: function () { redraw(); } };
+  }
+
+  function createRaw3D(box) {
+    var T = THREE;
+    var renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
+    if (!renderer.getContext()) throw new Error('no WebGL context');
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setClearColor(0x000000, 0);
+    box.appendChild(renderer.domElement);
+    renderer.domElement.className = 'raw-canvas';
+    var overlay = document.createElement('div');
+    overlay.className = 'raw-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    box.appendChild(overlay);
+    var axisNote = document.createElement('div');
+    axisNote.className = 'raw-axis-note';
+    axisNote.textContent = 'Hotspots per year · drag to rotate';
+    box.appendChild(axisNote);
+
+    var scene = new T.Scene();
+    var camera = new T.PerspectiveCamera(38, 2, 0.1, 400);
+    scene.add(new T.AmbientLight(0xffffff, 0.55));
+    var dl = new T.DirectionalLight(0xffffff, 0.75);
+    dl.position.set(6, 14, 10);
+    scene.add(dl);
+    var dl2 = new T.DirectionalLight(0x88aaff, 0.25);
+    dl2.position.set(-8, 4, -6);
+    scene.add(dl2);
+
+    var H = 8, BW = 0.36, BD = 0.55;
+    var geo = new T.BoxGeometry(1, 1, 1);
+    var matM = new T.MeshStandardMaterial({ color: COLOR_MODIS, emissive: COLOR_MODIS, emissiveIntensity: 0.32, roughness: 0.55, metalness: 0.1 });
+    var matS = new T.MeshStandardMaterial({ color: COLOR_SNPP, emissive: COLOR_SNPP, emissiveIntensity: 0.32, roughness: 0.55, metalness: 0.1 });
+    var chart = new T.Group(); // stretched in height on narrow screens (chart.scale.y)
+    scene.add(chart);
+    var bars = new T.Group();
+    chart.add(bars);
+    var guides = new T.Group(); // grid lines + marker, rebuilt on data change
+    chart.add(guides);
+    var highlight = new T.Mesh(geo, new T.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.85 }));
+    highlight.visible = false;
+    chart.add(highlight);
+    var meshes = [];
+    var labels = [];
+    var target = new T.Vector3(0, H * 0.38, 0);
+    var radius = 30, halfW = 12;
+
+    function clearGuides() {
+      while (guides.children.length) {
+        var c = guides.children.pop();
+        if (c.geometry) c.geometry.dispose();
+        if (c.material) c.material.dispose();
+      }
+    }
+    function addLabel(text, pos, cls) {
+      var el = document.createElement('span');
+      el.className = 'raw-label ' + (cls || '');
+      el.textContent = text;
+      overlay.appendChild(el);
+      // anchor: tick labels end at the point, the marker sits above it, the rest are centred
+      var off = cls === 'raw-tick' ? ' translate(-100%,-50%)' : cls === 'raw-marker' ? ' translate(-50%,-100%)' : ' translate(-50%,-50%)';
+      labels.push({ el: el, pos: pos, off: off });
+    }
+
+    function update() {
+      var list = rawSeries();
+      var n = list.length;
+      halfW = n / 2;
+      var maxV = 0;
+      list.forEach(function (r) { [r.modis, r.viirs].forEach(function (v) { if (isNum(v) && v > maxV) maxV = v; }); });
+      var ticks = niceTicks(maxV, 4);
+      var yMax = ticks[ticks.length - 1] || 1;
+      while (meshes.length < n * 2) {
+        var m = new T.Mesh(geo, meshes.length % 2 ? matS : matM);
+        bars.add(m);
+        meshes.push(m);
+      }
+      meshes.forEach(function (m) { m.visible = false; });
+      list.forEach(function (r, i) {
+        var xc = (i - (n - 1) / 2);
+        [[r.modis, -1], [r.viirs, 1]].forEach(function (s, k) {
+          var m = meshes[i * 2 + k];
+          var v = s[0];
+          if (!isNum(v) || v <= 0) return;
+          var hgt = (v / yMax) * H;
+          m.scale.set(BW, hgt, BD);
+          m.position.set(xc + s[1] * (BW / 2 + 0.02), hgt / 2, 0);
+          m.userData = { row: r };
+          m.visible = true;
+        });
+      });
+      highlight.visible = false;
+
+      clearGuides();
+      overlay.textContent = '';
+      labels = [];
+      var lineMat = { color: 0xffffff, transparent: true, opacity: 0.12 };
+      ticks.forEach(function (t) {
+        var yy = (t / yMax) * H;
+        var g = new T.BufferGeometry().setFromPoints([new T.Vector3(-halfW - 0.3, yy, -BD), new T.Vector3(halfW + 0.3, yy, -BD)]);
+        guides.add(new T.Line(g, new T.LineBasicMaterial(lineMat)));
+        addLabel(fmtCompact(t), new T.Vector3(-halfW - 0.6, yy, -BD), 'raw-tick');
+      });
+      var floor = new T.Mesh(new T.PlaneGeometry(n + 1, 3), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.035, depthWrite: false }));
+      floor.rotation.x = -Math.PI / 2;
+      guides.add(floor);
+      var narrow = box.clientWidth < 520;
+      list.forEach(function (r, i) {
+        if (i % (narrow ? 6 : 4) === 0) addLabel(String(r.year), new T.Vector3(i - (n - 1) / 2, -0.15, BD + 0.6), 'raw-year');
+      });
+      var start = viirsStartYear(list);
+      var si = -1;
+      list.forEach(function (r, i) { if (r.year === start) si = i; });
+      if (si >= 0) {
+        var mx = si - (n - 1) / 2 - 0.5;
+        var plane = new T.Mesh(new T.PlaneGeometry(2.2, H * 1.08), new T.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.1, side: T.DoubleSide, depthWrite: false }));
+        plane.rotation.y = Math.PI / 2;
+        plane.position.set(mx, H * 0.54, 0);
+        guides.add(plane);
+        var edge = new T.BufferGeometry().setFromPoints([new T.Vector3(mx, 0, 0), new T.Vector3(mx, H * 1.08, 0)]);
+        guides.add(new T.Line(edge, new T.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7 })));
+        addLabel(narrow ? start + ': VIIRS starts → false jump' : start + ': VIIRS starts → false jump if added up', new T.Vector3(mx, H * 1.12, 0), 'raw-marker');
+      }
+      layout();
+      setText('raw-readout', rawReadout(null));
+      renderOnce();
+    }
+
+    var size = { w: 0, h: 0 };
+    function layout() {
+      var w = box.clientWidth, h = box.clientHeight;
+      if (!w || !h) return;
+      size.w = w; size.h = h;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      var yScale = camera.aspect < 1.6 ? 1.9 : 1;
+      chart.scale.y = yScale;
+      target.y = H * (yScale > 1 ? 0.5 : 0.38) * yScale;
+      var vHalf = T.MathUtils.degToRad(camera.fov / 2);
+      var hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
+      radius = Math.max((halfW + 3) / Math.tan(hHalf), (H * 0.75 * yScale) / Math.tan(vHalf)) * 1.08;
+    }
+
+    // orbit: slow automatic swing + user drag
+    var theta = 0, phi = 0.32, dragTheta = 0, autoT = 0, lastInteract = -1e9;
+    var drag = null;
+    function placeCamera() {
+      var th = theta + dragTheta;
+      camera.position.set(
+        target.x + radius * Math.sin(th) * Math.cos(phi),
+        target.y + radius * Math.sin(phi),
+        target.z + radius * Math.cos(th) * Math.cos(phi));
+      camera.lookAt(target);
+    }
+    var v3 = new T.Vector3();
+    function renderOnce() {
+      placeCamera();
+      renderer.render(scene, camera);
+      labels.forEach(function (l) {
+        v3.copy(l.pos);
+        chart.localToWorld(v3);
+        v3.project(camera);
+        if (v3.z > 1) { l.el.style.visibility = 'hidden'; return; }
+        l.el.style.visibility = '';
+        var px = (v3.x + 1) / 2 * size.w;
+        if (l.off.indexOf('-100%,-50%') !== -1) px = Math.max(40, px); // keep axis numbers inside the box
+        else if (l.off.indexOf('-50%,-100%') !== -1) {
+          var half = l.el.offsetWidth / 2 + 4;
+          px = Math.max(half, Math.min(size.w - half, px));
+        }
+        l.el.style.transform = 'translate(' + px.toFixed(1) + 'px,' + ((1 - v3.y) / 2 * size.h).toFixed(1) + 'px)' + l.off;
+      });
+    }
+
+    var running = false, visible = false, rafId = 0, lastTs = 0;
+    function frame(ts) {
+      if (!running) return;
+      rafId = requestAnimationFrame(frame);
+      var dt = lastTs ? Math.min(64, ts - lastTs) : 16;
+      lastTs = ts;
+      if (!drag && ts - lastInteract > 2500) {
+        autoT += dt * 0.00022;
+        theta = 0.4 * Math.sin(autoT);
+      }
+      renderOnce();
+    }
+    function setVisible(v) {
+      visible = v;
+      bgPaused = v;
+      if (v && !running) { running = true; lastTs = 0; rafId = requestAnimationFrame(frame); }
+      if (!v && running) { running = false; cancelAnimationFrame(rafId); }
+    }
+    if (typeof IntersectionObserver !== 'undefined') {
+      new IntersectionObserver(function (entries) { setVisible(entries[0].isIntersecting); }, { threshold: 0.05 }).observe(box);
+    } else {
+      setVisible(true);
+    }
+
+    // picking
+    var ray = new T.Raycaster(), ndc = new T.Vector2();
+    function pick(clientX, clientY) {
+      var rect = renderer.domElement.getBoundingClientRect();
+      ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      ray.setFromCamera(ndc, camera);
+      var hits = ray.intersectObjects(meshes.filter(function (m) { return m.visible; }));
+      if (!hits.length) { highlight.visible = false; setText('raw-readout', rawReadout(null)); return; }
+      var m = hits[0].object;
+      highlight.visible = true;
+      highlight.position.copy(m.position);
+      highlight.scale.set(m.scale.x * 1.12, m.scale.y + 0.06, m.scale.z * 1.12);
+      setText('raw-readout', rawReadout(m.userData.row));
+      if (!running) renderOnce();
+    }
+    var cv = renderer.domElement;
+    cv.addEventListener('pointerdown', function (e) {
+      drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false, id: e.pointerId };
+      lastInteract = performance.now();
+    });
+    cv.addEventListener('pointermove', function (e) {
+      if (drag && drag.id === e.pointerId) {
+        var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+        if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 6) {
+          if (!drag.moved) { drag.moved = true; try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } }
+          dragTheta = Math.max(-1.3, Math.min(1.3, dragTheta - dx * 0.008));
+          phi = Math.max(0.05, Math.min(0.95, phi + dy * 0.004));
+        }
+        drag.x = e.clientX; drag.y = e.clientY;
+        lastInteract = performance.now();
+        if (!running) renderOnce();
+      } else if (e.pointerType === 'mouse') {
+        pick(e.clientX, e.clientY);
+      }
+    });
+    function endDrag(e) {
+      if (!drag) return;
+      if (!drag.moved) pick(e.clientX, e.clientY);
+      drag = null;
+      lastInteract = performance.now();
+    }
+    cv.addEventListener('pointerup', endDrag);
+    cv.addEventListener('pointercancel', function () { drag = null; });
+    cv.addEventListener('pointerleave', function (e) {
+      if (e.pointerType === 'mouse' && !drag) { highlight.visible = false; setText('raw-readout', rawReadout(null)); }
+    });
+
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(function () { layout(); renderOnce(); }).observe(box);
+    } else {
+      window.addEventListener('resize', function () { layout(); renderOnce(); });
+    }
+    update();
+    return { update: update };
+  }
+
+  /* ---------- presentation extras (all optional) ---------- */
 
   function initScrollSpy() {
     var sections = document.querySelectorAll('.site-section');
@@ -1038,6 +1937,7 @@
     }
     (function animate() {
       requestAnimationFrame(animate);
+      if (bgPaused) return; // the 3D chart is on screen: save the GPU for it
       earth.rotation.y += 0.0018;
       renderer.render(scene, camera);
     })();

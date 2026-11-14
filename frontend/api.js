@@ -39,6 +39,15 @@
       return getJSON('fires/UA/' + month + '.json');
     },
     getMetrics: function () { return getJSON('metrics.json'); },
-    getCoefficients: function () { return getJSON('coefficients.json'); }
+    getCoefficients: function () { return getJSON('coefficients.json'); },
+    // World grid: [[lat, lon, count], ...], lat/lon = south-west corner of a 1° cell, harmonized count.
+    getWorldCells: function (month) {
+      if (!/^\d{4}-\d{2}$/.test(String(month))) return Promise.resolve(null);
+      return getJSON('world_cells/' + month + '.json');
+    },
+    // Yearly raw counts: {ukraine: [{year, modis, viirs, ratio}], world: [...]}
+    getRawSeries: function () { return getJSON('raw_series.json'); },
+    // Held-out months 2021–2025: {ukraine: [{year, month, snpp, modis_scaled, modis_raw}], world: [...]}
+    getValidation: function () { return getJSON('validation.json'); }
   };
 })();
