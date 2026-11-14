@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Harmonized Fire Calendar | P1t0n | NASA Space Apps 2026</title>
+  <meta name="description" content="25 years of NASA FIRMS fire hotspots on one comparable scale: MODIS translated to the Suomi NPP VIIRS scale. Team P1t0n, NASA Space Apps Challenge 2026, local event Dnipro." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Decorative background (optional; the page works without it) -->
+  <div id="space-bg-container" aria-hidden="true">
+    <canvas id="globe-canvas"></canvas>
+    <div class="orbital-grid-overlay"></div>
+    <div class="ambient-glow glow-1"></div>
+    <div class="ambient-glow glow-2"></div>
+  </div>
+
+  <div class="page-wrapper">
+
+    <div id="demo-banner" class="demo-banner" role="status" hidden>
+      <strong>Demo data</strong> — numbers are synthetic until the real pipeline output replaces them.
+    </div>
+
+    <header class="navbar">
+      <div class="container nav-inner">
+        <a href="#home" class="brand" title="Back to the top">
+          <span class="brand-badge">P1t0n</span>
+          <span class="brand-title">Harmonized <span class="text-ember">Fire Calendar</span></span>
+        </a>
+
+        <nav class="nav-links" aria-label="Sections">
+          <a href="#home" class="nav-tab active" data-target="home"><span class="tab-num">01</span> Home</a>
+          <a href="#problem" class="nav-tab" data-target="problem"><span class="tab-num">02</span> Problem</a>
+          <a href="#method" class="nav-tab" data-target="method"><span class="tab-num">03</span> Method</a>
+          <a href="#calendar" class="nav-tab" data-target="calendar"><span class="tab-num">04</span> Calendar</a>
+          <a href="#map-section" class="nav-tab" data-target="map-section"><span class="tab-num">05</span> Map</a>
+          <a href="#about" class="nav-tab" data-target="about"><span class="tab-num">06</span> About</a>
+        </nav>
+
+        <div class="nav-status">
+          <span id="data-status-badge" class="status-pill" title="Where the numbers on this page come from">
+            <span class="pulse-dot"></span>
+            <span class="status-text">Loading data…</span>
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- 1. HERO -->
+    <section id="home" class="site-section landing-page">
+      <div class="container landing-container">
+        <div class="landing-hero-box">
+          <div class="orbital-badge animate-fade-up">
+            <span class="radar-ping"></span>
+            <span>NASA SPACE APPS CHALLENGE 2026 • HARMONIZATION OF MODIS AND VIIRS HOT SPOTS</span>
+          </div>
+
+          <h1 class="landing-title animate-fade-up delay-1">
+            Harmonized<br />
+            <span class="text-ember">Fire Calendar</span>
+          </h1>
+
+          <p class="landing-lead animate-fade-up delay-2">
+            25 years of NASA fire hotspots on one comparable scale — <strong>MODIS</strong> translated to <strong>VIIRS</strong>.
+          </p>
+          <p class="landing-sub animate-fade-up delay-2">
+            Suomi NPP stopped delivering new data on 2 Nov 2026 and MODIS is ageing; NOAA-20/21 carry VIIRS forward —
+            long fire records have to be stitched across instruments.
+          </p>
+
+          <div class="landing-cta-group animate-fade-up delay-3">
+            <a href="#calendar" class="btn btn-primary btn-hero" title="Jump to the interactive burning calendar">
+              <span>Open the burning calendar</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </a>
+            <a href="#method" class="btn btn-outline btn-hero" title="Jump to the method and the math">
+              <span>How the method works</span>
+            </a>
+          </div>
+
+          <div class="telemetry-strip animate-fade-up delay-4">
+            <div class="telemetry-item glass-panel spotlight-card">
+              <span class="tel-code">DATA</span>
+              <strong class="tel-val">NASA FIRMS</strong>
+              <span class="tel-desc">MODIS C6.1 (1 km) and VIIRS 375 m active-fire hotspots</span>
+            </div>
+            <div class="telemetry-item glass-panel spotlight-card">
+              <span class="tel-code">REFERENCE SCALE</span>
+              <strong class="tel-val text-teal">Suomi NPP</strong>
+              <span class="tel-desc">One VIIRS satellite, the same for the whole period</span>
+            </div>
+            <div class="telemetry-item glass-panel spotlight-card">
+              <span class="tel-code">TIMELINE</span>
+              <strong class="tel-val text-ember">2000–2026</strong>
+              <span class="tel-desc">Monthly counts; 2026 is preliminary (near-real-time)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. PROBLEM + 3. IDEA -->
+    <section id="problem" class="site-section section-auto">
+      <div class="container">
+        <div class="workspace-top-bar">
+          <div>
+            <div class="eyebrow">02 • The problem</div>
+            <h2 class="page-heading">Two instruments, two different counts</h2>
+          </div>
+        </div>
+
+        <div class="problem-grid">
+          <figure id="problem-figure" class="glass-panel problem-figure">
+            <img id="problem-img" src="./public/figures/raw_series_ukraine.png"
+                 alt="Yearly fire hotspot counts for Ukraine, 2001–2025: raw MODIS (Terra + Aqua) bars and raw VIIRS Suomi NPP bars from 2012, about three times higher, with the VIIRS/MODIS ratio line."
+                 loading="lazy" />
+            <figcaption>Raw yearly hotspot counts for Ukraine: MODIS (Terra + Aqua) vs VIIRS Suomi NPP (NASA FIRMS).</figcaption>
+          </figure>
+          <div class="glass-panel science-card">
+            <p class="problem-text">
+              VIIRS (375 m pixels) detects roughly <strong>3–4× more hotspots per year</strong> than MODIS (1 km pixels) for the same fires — and up to 10–16× in some months.
+            </p>
+            <p class="problem-text">
+              Simply adding the two archives together creates a <strong>false jump in 2012</strong>, when VIIRS data begins —
+              a change of instrument, not a change in burning.
+            </p>
+          </div>
+        </div>
+
+        <div class="workspace-top-bar idea-head">
+          <div>
+            <div class="eyebrow">03 • The idea</div>
+            <h2 class="page-heading">Translate MODIS to the VIIRS scale</h2>
+          </div>
+        </div>
+
+        <div class="idea-flow" aria-label="Idea diagram">
+          <div class="idea-inputs">
+            <div class="glass-panel idea-box">
+              <span class="step-num">INPUT 1</span>
+              <strong>MODIS Terra + Aqua</strong>
+              <span>frequent, coarse (1 km), 2000–</span>
+            </div>
+            <div class="glass-panel idea-box idea-ref">
+              <span class="step-num">INPUT 2 • REFERENCE</span>
+              <strong>Suomi NPP VIIRS</strong>
+              <span>detailed (375 m), 2012–2025</span>
+            </div>
+          </div>
+          <div class="idea-arrow" aria-hidden="true">→</div>
+          <div class="glass-panel idea-box">
+            <span class="step-num">STEP 1</span>
+            <strong>Calibrate</strong>
+            <span>on overlap years 2012–2020</span>
+          </div>
+          <div class="idea-arrow" aria-hidden="true">→</div>
+          <div class="glass-panel idea-box idea-out">
+            <span class="step-num">RESULT</span>
+            <strong>One harmonized series</strong>
+            <span>2000–2026</span>
+          </div>
+          <div class="idea-arrow" aria-hidden="true">→</div>
+          <div class="glass-panel idea-box">
+            <span class="step-num">CONTINUITY</span>
+            <strong>Bridge NOAA-20 → Suomi NPP</strong>
+            <span>after 2 Nov 2026</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. METHOD & MATH -->
+    <section id="method" class="site-section section-auto science-page">
+      <div class="container">
+        <div class="workspace-top-bar">
+          <div>
+            <div class="eyebrow">04 • Method and math</div>
+            <h2 class="page-heading">How MODIS is put on the Suomi NPP scale</h2>
+          </div>
+        </div>
+
+        <div class="science-grid">
+          <div class="glass-panel science-card">
+            <div class="eyebrow">1 • Monthly scale factors</div>
+            <h3>Ratio of sums on the overlap years</h3>
+            <div class="formula">k<sub>Aqua</sub>(m) = Σ<sub>y</sub> SNPP(y, m) / Σ<sub>y</sub> Aqua(y, m),&nbsp;&nbsp; y = 2012 … 2020</div>
+            <div class="formula">k<sub>Terra</sub>(m) = Σ<sub>y</sub> SNPP(y, m) / Σ<sub>y</sub> Terra(y, m)</div>
+            <p class="card-desc">m is the calendar month. A ratio of sums is unbiased for totals: the scaled MODIS total over the training years equals the Suomi NPP total.</p>
+          </div>
+
+          <div class="glass-panel science-card">
+            <div class="eyebrow">2 • Terra and Aqua separately</div>
+            <h3>Different overpass times</h3>
+            <p class="card-desc">Terra passes at ≈10:30 local time; Aqua and VIIRS at ≈13:30. Each MODIS satellite gets its own factor, then the two are combined, weighted by their raw counts:</p>
+            <div class="formula">H = w · k<sub>Aqua</sub> · N<sub>Aqua</sub> + (1 − w) · k<sub>Terra</sub> · N<sub>Terra</sub></div>
+            <div class="formula">w = N<sub>Aqua</sub> / (N<sub>Aqua</sub> + N<sub>Terra</sub>)</div>
+          </div>
+
+          <div class="glass-panel science-card">
+            <div class="eyebrow">3 • One series, three periods</div>
+            <h3>Harmonized count H(y, m)</h3>
+            <ul class="formula-list">
+              <li><span class="formula-inline">2000–2011</span> scaled MODIS (formula above)</li>
+              <li><span class="formula-inline">2012 – Oct 2026</span> real Suomi NPP counts</li>
+              <li><span class="formula-inline">after 2 Nov 2026</span> b · NOAA-20, where b = Σ SNPP / Σ NOAA-20 over 2018–2025</li>
+            </ul>
+            <p class="card-desc">Only <strong>one</strong> VIIRS satellite is used. Adding NOAA-20 on top of Suomi NPP would double the counts from 2018 — a new satellite, not more fire.</p>
+          </div>
+
+          <div class="glass-panel science-card">
+            <div class="eyebrow">4 • Validation</div>
+            <h3>Trained 2012–2020, tested on unseen 2021–2025</h3>
+            <p class="card-desc">Scaled MODIS is compared with real Suomi NPP on years the factors never saw.</p>
+            <div class="table-wrap">
+              <table class="data-table" id="metrics-table">
+                <thead>
+                  <tr><th scope="col">Area</th><th scope="col">MAE</th><th scope="col">WAPE</th><th scope="col">Bias</th><th scope="col">R²</th></tr>
+                </thead>
+                <tbody>
+                  <tr data-key="ukraine"><th scope="row">Ukraine</th><td data-m="mae">…</td><td data-m="wape_pct">…</td><td data-m="bias_pct">…</td><td data-m="r2">…</td></tr>
+                  <tr data-key="world"><th scope="row">World</th><td data-m="mae">…</td><td data-m="wape_pct">…</td><td data-m="bias_pct">…</td><td data-m="r2">…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="card-desc">Monthly totals, hotspots per month. MAE — mean absolute error; WAPE — Σ|error| / Σ actual; bias — Σ error / Σ actual.</p>
+            <p class="card-desc" id="metrics-raw"></p>
+            <p class="card-desc" id="metrics-reference"></p>
+            <blockquote id="metrics-notes" class="science-note">Loading validation results…</blockquote>
+          </div>
+
+          <div class="glass-panel science-card">
+            <div class="eyebrow">5 • Uncertainty</div>
+            <h3>Small counts are noisy</h3>
+            <p class="card-desc">Hotspot counts behave like Poisson counts, so the relative error is about</p>
+            <div class="formula">relative error ≈ 1 / √N</div>
+            <p class="card-desc">100 hotspots → ±10 %; 10 hotspots → ±32 %. Winter months with few fires are therefore much noisier than the summer and autumn peaks.</p>
+          </div>
+
+          <div class="glass-panel science-card">
+            <div class="eyebrow">6 • Calendar statistics</div>
+            <h3>Median, anomaly, expected range</h3>
+            <div class="formula">M(m) = median of H(y, m) over all years</div>
+            <div class="formula">z = (H − M) / σ<sub>m</sub>,&nbsp;&nbsp; |z| &gt; 2 is highlighted</div>
+            <p class="card-desc">The expected range is the 25th–75th percentile of past years for that month (shown when available). These are statistics of past years, not a weather forecast.</p>
+          </div>
+        </div>
+
+        <div class="glass-panel science-card coef-card">
+          <div class="eyebrow">Scale factors by month</div>
+          <h3>k<sub>Aqua</sub> and k<sub>Terra</sub></h3>
+          <p class="card-desc">Ukraine, trained 2012–2020. k is smallest in spring and autumn and largest in summer and winter. Our hypothesis: large agricultural burns dominate in spring and autumn and MODIS sees many of them, while smaller fires in other months are missed more often. The world grid uses the same rule per 10° latitude band × month.</p>
+          <p id="coef-missing" class="empty-state" hidden>Coefficient table not available yet.</p>
+          <div class="table-wrap">
+            <table class="data-table" id="coef-table" hidden>
+              <thead><tr><th scope="col">Month</th><th scope="col">k<sub>Aqua</sub></th><th scope="col">k<sub>Terra</sub></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. BURNING CALENDAR -->
+    <section id="calendar" class="site-section section-auto workspace-page">
+      <div class="container">
+
+        <div class="workspace-top-bar">
+          <div>
+            <div class="eyebrow">05 • Burning calendar</div>
+            <h2 class="page-heading">Month × year heat map</h2>
+          </div>
+
+          <div class="kpi-strip">
+            <div class="kpi-card">
+              <span class="kpi-label">Selected month</span>
+              <strong class="kpi-value" id="kpi-period">—</strong>
+              <span class="kpi-sub" id="kpi-region-name">—</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label" id="kpi-value-label">Harmonized count</span>
+              <strong class="kpi-value text-ember" id="kpi-value">—</strong>
+              <span class="kpi-sub" id="kpi-value-sub">hotspots in the month</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-label">Anomaly (z)</span>
+              <strong class="kpi-value" id="kpi-anomaly">—</strong>
+              <span class="kpi-sub" id="kpi-anomaly-desc">vs median of the month</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-bar glass-panel">
+          <div class="control-group">
+            <label for="region-select">Region</label>
+            <select id="region-select" class="custom-select" title="Choose the area whose calendar is shown"></select>
+            <span class="helper">Which area the calendar counts.</span>
+          </div>
+
+          <div class="control-group">
+            <label for="month-from">From</label>
+            <input type="month" id="month-from" class="custom-input" title="First month shown" />
+            <span class="helper">First month shown.</span>
+          </div>
+
+          <div class="control-group">
+            <label for="month-to">To</label>
+            <input type="month" id="month-to" class="custom-input" title="Last month shown" />
+            <span class="helper">Last month shown.</span>
+          </div>
+
+          <div class="control-group">
+            <span class="label-like" id="series-label">Series</span>
+            <div class="segmented-control" id="series-toggle" role="group" aria-labelledby="series-label">
+              <button type="button" class="seg-btn active" data-series="harmonized" title="Harmonized series on the Suomi NPP VIIRS scale">Harmonized</button>
+              <button type="button" class="seg-btn" data-series="modis" title="Raw MODIS counts (Terra + Aqua)">MODIS</button>
+              <button type="button" class="seg-btn" data-series="viirs" title="Raw VIIRS counts from Suomi NPP (2012 onwards)">VIIRS (SNPP)</button>
+            </div>
+            <span class="helper">Which numbers colour the cells.</span>
+          </div>
+        </div>
+
+        <div class="workspace-grid-swapped">
+
+          <div class="heatmap-card glass-panel">
+            <div class="card-header">
+              <div class="card-title-block">
+                <h3 id="heatmap-title">Calendar</h3>
+                <p class="card-desc">Rows are years, columns are months. Click or tap a cell to read its numbers.</p>
+              </div>
+              <div class="heatmap-controls">
+                <label class="checkbox-pill" title="Dim every month that is not an anomaly (|z| > 2)">
+                  <input type="checkbox" id="toggle-anomalies-only" />
+                  <span>Anomalies only</span>
+                </label>
+                <button type="button" id="btn-calendar-csv" class="btn btn-outline btn-csv" title="Download the calendar rows currently shown as CSV">Download CSV</button>
+                <button type="button" id="btn-calendar-png" class="btn btn-outline btn-csv" title="Download the heat map as a PNG image">Download PNG</button>
+              </div>
+            </div>
+            <p class="helper helper-block">CSV: the rows shown, all data columns. PNG: an image of this heat map for reports.</p>
+
+            <div class="heatmap-scroll-container">
+              <div id="heatmap-grid" class="heatmap-matrix" aria-label="Burning calendar heat map"></div>
+              <p id="heatmap-empty" class="empty-state" hidden>No data for this selection.</p>
+            </div>
+
+            <div class="heatmap-footer">
+              <div class="legend-block">
+                <div class="legend-title-sm" id="legend-title">Hotspots per month</div>
+                <div id="legend-scale" class="legend-scale"></div>
+              </div>
+              <div class="anomaly-keys">
+                <span class="anomaly-key"><span class="anomaly-sample high"></span> z &gt; 2</span>
+                <span class="anomaly-key"><span class="anomaly-sample low"></span> z &lt; −2</span>
+                <span class="anomaly-key"><span class="nodata-sample"></span> no data</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="heatmap-card glass-panel">
+            <div class="card-header">
+              <div class="card-title-block">
+                <h3>Selected month vs median</h3>
+                <p class="card-desc" id="insp-date">—</p>
+              </div>
+            </div>
+            <dl class="readout" id="readout">
+              <div><dt>Value</dt><dd id="ro-value">—</dd></div>
+              <div><dt>Median of this month</dt><dd id="ro-median">—</dd></div>
+              <div><dt>Anomaly z</dt><dd id="ro-z">—</dd></div>
+              <div><dt>Expected range (25th–75th pct)</dt><dd id="ro-range">—</dd></div>
+              <div><dt>Counting noise (≈ 1/√N)</dt><dd id="ro-noise">—</dd></div>
+            </dl>
+            <p id="insp-summary" class="inspector-text">Select a cell in the calendar.</p>
+
+            <div class="sensor-comparison-bar">
+              <div class="comp-header">
+                <span>Raw vs harmonized for this month</span>
+              </div>
+              <div class="comp-bars">
+                <div class="comp-row">
+                  <span class="comp-name">Raw MODIS</span>
+                  <div class="progress-track"><div id="bar-modis" class="progress-fill fill-modis"></div></div>
+                  <span class="comp-val" id="val-modis">—</span>
+                </div>
+                <div class="comp-row">
+                  <span class="comp-name">Raw VIIRS</span>
+                  <div class="progress-track"><div id="bar-viirs" class="progress-fill fill-viirs"></div></div>
+                  <span class="comp-val" id="val-viirs">—</span>
+                </div>
+                <div class="comp-row">
+                  <span class="comp-name">Harmonized</span>
+                  <div class="progress-track"><div id="bar-harm" class="progress-fill fill-harm"></div></div>
+                  <span class="comp-val" id="val-harm">—</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. MAP (secondary) -->
+    <section id="map-section" class="site-section section-auto">
+      <div class="container">
+        <div class="workspace-top-bar">
+          <div>
+            <div class="eyebrow">06 • Map</div>
+            <h2 class="page-heading">Hotspots of the selected month</h2>
+          </div>
+        </div>
+
+        <div class="map-card glass-panel">
+          <div class="card-header">
+            <div class="card-title-block">
+              <h3 id="map-title">Ukraine hotspots</h3>
+              <p class="card-desc" id="map-status">Select a month in the calendar.</p>
+            </div>
+            <div class="map-tools">
+              <div class="segmented-control" id="points-toggle" role="group" aria-label="Which hotspots to show">
+                <button type="button" class="seg-btn active" data-points="all" title="Show MODIS and VIIRS hotspots">All</button>
+                <button type="button" class="seg-btn" data-points="MODIS" title="Show MODIS hotspots only">MODIS</button>
+                <button type="button" class="seg-btn" data-points="VIIRS" title="Show VIIRS hotspots only">VIIRS</button>
+              </div>
+              <button type="button" id="btn-points-csv" class="btn btn-outline btn-csv" title="Download the hotspots shown on the map as CSV">Download points CSV</button>
+            </div>
+          </div>
+          <p class="helper helper-block">The map follows the month selected in the calendar. Point data exist for Ukraine only; click a point for its details.</p>
+
+          <div id="map-block" class="map-wrapper">
+            <div id="map"></div>
+            <div class="map-legend">
+              <div class="legend-title">Fire radiative power (FRP)</div>
+              <div class="legend-item"><span class="dot low"></span> &lt; 25 MW</div>
+              <div class="legend-item"><span class="dot med"></span> 25–80 MW</div>
+              <div class="legend-item"><span class="dot high"></span> &gt; 80 MW</div>
+            </div>
+          </div>
+          <p id="map-unavailable" class="empty-state" hidden>The map library could not be loaded, so the map is hidden. The calendar and downloads still work.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. HOW WE BUILT IT -->
+    <section id="about" class="site-section section-auto">
+      <div class="container">
+        <div class="workspace-top-bar">
+          <div>
+            <div class="eyebrow">07 • How we built it</div>
+            <h2 class="page-heading">Data chain, code and credits</h2>
+          </div>
+        </div>
+
+        <div class="pipeline-grid">
+          <div class="glass-panel pipeline-step">
+            <span class="step-num">STEP 01</span>
+            <h4>NASA FIRMS files</h4>
+            <p>Yearly country files and global yearly archives (standard processing) for MODIS, Suomi NPP and NOAA-20.</p>
+          </div>
+          <div class="glass-panel pipeline-step">
+            <span class="step-num">STEP 02</span>
+            <h4>0.25° monthly grid</h4>
+            <p>Hotspots (vegetation fires, type 0) counted per 0.25° cell, month and satellite.</p>
+          </div>
+          <div class="glass-panel pipeline-step">
+            <span class="step-num">STEP 03</span>
+            <h4>Harmonization</h4>
+            <p>Monthly factors MODIS → Suomi NPP, validated on unseen years.</p>
+          </div>
+          <div class="glass-panel pipeline-step">
+            <span class="step-num">STEP 04</span>
+            <h4>Calendar JSON</h4>
+            <p>Monthly counts, medians and anomalies per region, saved as static files.</p>
+          </div>
+          <div class="glass-panel pipeline-step">
+            <span class="step-num">STEP 05</span>
+            <h4>This static site</h4>
+            <p>Reads the files directly in the browser; no server, no login.</p>
+          </div>
+        </div>
+
+        <div class="science-grid">
+          <div class="glass-panel science-card">
+            <div class="eyebrow">Open code</div>
+            <h3>Repository</h3>
+            <p class="card-desc">All code is open: <a class="text-link" href="https://github.com/dorawebstart/p1t0n" target="_blank" rel="noopener">github.com/dorawebstart/p1t0n</a></p>
+            <div class="eyebrow eyebrow-gap">Use of AI</div>
+            <p class="card-desc">Parts of the code were written with AI assistance (Claude, Gemini); the idea, method choices and conclusions are the team's.</p>
+          </div>
+          <div class="glass-panel science-card">
+            <div class="eyebrow">Credits</div>
+            <ul class="credits-list">
+              <li><strong>NASA FIRMS</strong> — MODIS Collection 6.1 and VIIRS 375 m active fire data (Suomi NPP, NOAA-20).</li>
+              <li><strong>geoBoundaries</strong> — administrative boundaries (ODbL).</li>
+              <li><strong>Natural Earth</strong> — country boundaries (public domain).</li>
+              <li><strong>OpenStreetMap</strong> contributors — map tiles.</li>
+              <li><strong>Leaflet</strong> 1.9.4 — interactive map.</li>
+              <li><strong>three.js</strong> r128 — decorative background.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <div>Team <strong>P1t0n</strong> • NASA Space Apps Challenge 2026 • Local event: Dnipro</div>
+        <div class="footer-note">Challenge: Harmonization of MODIS and VIIRS Hot Spots • <a class="text-link" href="https://github.com/dorawebstart/p1t0n" target="_blank" rel="noopener">GitHub</a> • Data: NASA FIRMS</div>
+      </div>
+    </footer>
+  </div>
+
+  <div id="heatmap-tooltip" class="floating-tooltip hidden" role="tooltip"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
