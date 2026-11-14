@@ -354,6 +354,9 @@
       var fromIn = $('month-from'), toIn = $('month-to');
       [fromIn, toIn].forEach(function (inp) { inp.min = first; inp.max = last; });
       // Keep the user's range if it still fits; otherwise use the full range.
+      // A range that ran to the end of the previous zone's data keeps running to the end.
+      if (state.to && state.to === state.lastRowKey) state.to = last;
+      state.lastRowKey = last;
       if (!state.from || state.from < first || state.from > last) state.from = first;
       if (!state.to || state.to > last || state.to < first) state.to = last;
       if (state.from > state.to) { state.from = first; state.to = last; }
@@ -1151,7 +1154,30 @@
       btn.addEventListener('click', function () {
         state.layerPref = btn.getAttribute('data-layer');
         if (map) map.closePopup();
-        loadFires();
+        // Keep the calendar and the map on the same zone: World cells -> World calendar
+        // (from a Ukrainian zone), Ukraine points -> Ukraine calendar (from a non-Ukrainian zone).
+        var isUA = state.regionId && state.regionId.indexOf('UKR') === 0;
+        var next = state.regionId;
+        if (state.layerPref === 'world' && isUA && regionById('WORLD')) next = 'WORLD';
+        if (state.layerPref === 'ukraine' && !isUA && regionById('UKR')) next = 'UKR';
+        // World cells exist only for some months: move to the same month of the last world year,
+        // or the last world month.
+        var monthMoved = false;
+        if (state.layerPref === 'world' && state.worldMonths && state.worldMonths.length && !worldAvailable(state.selected)) {
+          var w = state.worldMonths, last = w[w.length - 1];
+          var same = state.selected ? last.slice(0, 4) + state.selected.slice(4) : null;
+          state.selected = worldAvailable(same) ? same : last;
+          if (state.to && state.to < state.selected) state.to = null;
+          if (state.from && state.from > state.selected) state.from = null;
+          monthMoved = true;
+        }
+        if (next !== state.regionId || monthMoved) {
+          state.regionId = next;
+          $('region-select').value = next;
+          loadCalendar();   // re-renders the calendar and redraws the map
+        } else {
+          loadFires();
+        }
       });
     });
 
