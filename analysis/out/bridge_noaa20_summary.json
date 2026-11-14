@@ -1,0 +1,56 @@
+{
+  "period": "2018-2025",
+  "months": 93,
+  "ratio_median": 1.0065,
+  "ratio_p25": 0.9617,
+  "ratio_p75": 1.0629,
+  "ratio_of_sums": 1.0326,
+  "ratio_median_months_snpp_ge_1000": 1.0034,
+  "ratio_p25_p75_months_snpp_ge_1000": [
+    0.9634,
+    1.036
+  ],
+  "annual": {
+    "2018": {
+      "snpp": 53294,
+      "noaa20": 51528,
+      "ratio": 0.9669
+    },
+    "2019": {
+      "snpp": 80317,
+      "noaa20": 79882,
+      "ratio": 0.9946
+    },
+    "2020": {
+      "snpp": 76623,
+      "noaa20": 77269,
+      "ratio": 1.0084
+    },
+    "2021": {
+      "snpp": 31436,
+      "noaa20": 31572,
+      "ratio": 1.0043
+    },
+    "2022": {
+      "snpp": 47142,
+      "noaa20": 54343,
+      "ratio": 1.1528
+    },
+    "2023": {
+      "snpp": 37131,
+      "noaa20": 36414,
+      "ratio": 0.9807
+    },
+    "2024": {
+      "snpp": 79257,
+      "noaa20": 88071,
+      "ratio": 1.1112
+    },
+    "2025": {
+      "snpp": 59675,
+      "noaa20": 60963,
+      "ratio": 1.0216
+    }
+  },
+  "how_to_use": "snpp_equivalent = noaa20 / ratio_of_sums (Ukraine, monthly totals)"
+}
