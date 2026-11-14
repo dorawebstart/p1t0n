@@ -13,6 +13,7 @@
 | 14.11 | Дорофєєв Ростислав | Claude Code | Виправлення скрипта «сирі ряди» (фільтр супутників, річний графік) | `analysis/step1_raw_series.py`, `docs/figures/raw_series_ukraine*.png` | так: шапка скрипта, підпис на графіку |
 | 14.11 | Крупіца Єгор | Claude Code | Скрипти гармонізації MODIS → Suomi NPP (Україна і сітка за широтними поясами), перевірка точності, чернетка опису методу | `model/harmonize.py`, `model/harmonize_grid.py`, `model/out/`, `model/README.md` | так: шапка скриптів, `model/README.md` |
 | 14.11 | Крупіца Єгор (замість Івана) | Claude Code | Місток NOAA-20 → SNPP, перевірка точності, календар UKR + 27 областей, факти й тексти слайдів 2, 5, 6 | `analysis/bridge_noaa20.py`, `analysis/validate_harmonization.py`, `analysis/build_calendar.py`, `analysis/out/`, `docs/figures/bridge_noaa20.png`, `docs/figures/harmonized_ukraine.png`, `docs/FACTS_UKRAINE.md` | так: шапка скриптів, підписи на графіках |
+| 14.11 | Дорофєєв Ростислав | Claude Code | Переробка сайту Михайла (дані з файлів, англійська, розділ Method, PNG/CSV), експорт справжніх даних, запуск світової гармонізації, `docs/MATH.md`, `docs/DEMO_SCRIPT.md` | `frontend/*.js`, `frontend/index.html`, `backend/export_static.py`, `docs/` | так: шапки файлів, розділ «How we built it» на сайті |
 |  |  |  |  |  |  |
 
 **Як позначати:**

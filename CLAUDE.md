@@ -230,7 +230,7 @@ cell_id, year, month, modis_count, viirs_count, harmonized_count
 - `GET /api/fires?...&format=csv` → те саме файлом CSV
 - `GET /api/metrics` → `metrics.json`
 
-**Фейкові дані вже лежать у `frontend/public/data/`** у цьому самому форматі (генератор — `backend/make_fake_data.js`, опис — `frontend/public/data/README.md`). Файл `manifest.json` має `"fake": true` — поки так, сайт показує плашку «Demo data». Справжні дані замінять ці файли без змін у коді фронтенду.
+**Справжні дані лежать у `frontend/public/data/`** (від 14.11, `manifest.fake = false`): Україна + 27 областей, світ + 227 країн, коефіцієнти, метрики перевірки, точки України за 2026 рік. Генерує `python backend/export_static.py --world-grid <grid_harmonized_world.csv.gz> --cell-country <cell_country.csv>` — руками файли не редагувати. Сайт: `frontend/index.html` + `api.js` (єдине місце, що читає дані) + `app.js`; публікується на GitHub Pages з `main`. Генератор фейкових даних `backend/make_fake_data.js` лишається для тестів інтерфейсу.
 
 ## Підказки по ролях
 - **Data engineer і data scientist (Python через ШІ).** Просіть ШІ писати маленькі скрипти по одному кроку: «завантаж CSV», «відфільтруй», «порахуй клітинки», «збережи у grid_monthly.csv». Запускайте кожен скрипт і показуйте ШІ помилки. Зберігайте результат у форматі контракту.

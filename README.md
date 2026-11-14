@@ -4,7 +4,7 @@
 
 > Work in progress during the hackathon (14–15 November 2026).
 
-- **Live site:** TODO
+- **Live site:** https://dorawebstart.github.io/p1t0n/
 - **Mirror:** TODO
 - **Demo video (≤ 30 s):** TODO
 - **Team page:** https://www.spaceappschallenge.org/2026/find-a-team/p1t0n/
@@ -46,9 +46,38 @@ A web application that harmonizes MODIS and VIIRS hotspots from NASA FIRMS into 
 | `data/` | Small derived data files and their description |
 | `docs/` | Team documents and submission materials |
 
+## Method and accuracy
+
+For every calendar month `m`, on the years when both instruments flew (2012–2020):
+
+```
+k_Aqua(m)  = Σ SNPP(y,m) / Σ Aqua(y,m)        k_Terra(m) = Σ SNPP(y,m) / Σ Terra(y,m)
+H = w·k_Aqua·Aqua + (1−w)·k_Terra·Terra,      w = Aqua / (Aqua + Terra)      (2000–2011)
+H = Suomi NPP                                                                (2012–Oct 2026)
+```
+
+Terra and Aqua are scaled separately because they fly at different times of day; only one VIIRS satellite (Suomi NPP) is used so that new satellites do not inflate counts. World cells use the same rule per 10° latitude band × month.
+
+Tested on years the model never saw (2021–2025), Ukraine, monthly totals:
+
+| | R² | bias |
+|---|---|---|
+| raw MODIS vs Suomi NPP | 0.16 | −71 % |
+| harmonized MODIS vs Suomi NPP | **0.95** | +3.7 % |
+
+Full derivation, uncertainty and limitations: [`docs/MATH.md`](docs/MATH.md) (Ukrainian) and [`model/README.md`](model/README.md).
+
 ## Run locally
 
-TODO — filled in once the components exist.
+Python 3 with pandas, Node.js 18+.
+
+```bash
+node pipeline/01_download.js && node pipeline/02_build_fires.js      # Ukraine hotspots (fires_v2)
+python model/harmonize.py                                             # Ukraine harmonization
+python model/harmonize_grid.py --input <grid_monthly_v1.csv.gz> --tag world   # world grid
+python backend/export_static.py                                       # data files for the site
+python -m http.server 8000 --directory frontend                       # open http://localhost:8000
+```
 
 ## Use of AI
 
