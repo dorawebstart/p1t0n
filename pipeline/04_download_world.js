@@ -19,12 +19,15 @@ const ORDER = process.argv.slice(2).length ? process.argv.slice(2) : ['modis', '
     .map(c => ({ name: c[0], size: +c[1], sensor: c[0].replace(/_\d{4}_all_countries\.zip$/, '') }))
     .filter(f => ORDER.includes(f.sensor))
     .sort((a, b) => ORDER.indexOf(a.sensor) - ORDER.indexOf(b.sensor) || a.name.localeCompare(b.name));
+  if (process.env.REVERSE) files.reverse(); // другий паралельний потік іде з кінця списку
   const total = files.reduce((s, f) => s + f.size, 0);
   console.log(`${files.length} архівів, ${(total / 1e9).toFixed(1)} ГБ`);
   let done = 0;
   for (const f of files) {
     const out = path.join(DIR, f.name);
     if (fs.existsSync(out) && fs.statSync(out).size === f.size) { done += f.size; console.log(`skip ${f.name}`); continue; }
+    // інший потік уже качає цей файл (його .part оновлювався протягом останньої хвилини)
+    if (fs.existsSync(out + '.part') && Date.now() - fs.statSync(out + '.part').mtimeMs < 60000) { console.log(`busy ${f.name}`); continue; }
     for (let attempt = 1; ; attempt++) {
       try {
         const t0 = Date.now();
