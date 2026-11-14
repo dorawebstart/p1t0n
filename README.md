@@ -1,4 +1,4 @@
-# P1t0n — Fire Calendar of Ukraine
+# P1t0n — Harmonized Fire Calendar of the Planet
 
 **NASA Space Apps Challenge 2026 · Local Event: Dnipro · Challenge: [Harmonization of MODIS and VIIRS Hot Spots](https://www.spaceappschallenge.org/2026/challenges/modis-and-viirs-hot-spots/)**
 
@@ -11,33 +11,35 @@
 
 ## The problem
 
-NASA satellites have recorded active fires since 2000, but the record is split between two instruments:
+NASA satellites have recorded active fires since 2000, but the record is split between two generations of instruments:
 
-- **MODIS** (Terra, Aqua), since 2000, ~1 km pixels;
-- **VIIRS** (Suomi NPP, NOAA-20/21), since 2012, ~375 m pixels — it detects several times more hotspots for the same fires.
+- **MODIS** on Terra and Aqua, since 2000, ~1 km pixels. These satellites are reaching the end of their mission.
+- **VIIRS**, its successor, ~375 m pixels, on Suomi NPP (2012), NOAA-20 and NOAA-21. It detects several times more hotspots for the same fires, and more VIIRS satellites mean even more detections.
 
-Adding the two archives together produces a false jump in fire activity after 2012.
+Adding the archives together produces a false jump in fire activity after 2012. Without harmonization, 25 years of global fire history cannot be compared with what VIIRS sees today.
 
 ## What we build
 
-A web application that harmonizes MODIS and VIIRS hotspots from NASA FIRMS into one consistent **burning activity calendar** for Ukraine, 2000–2026:
+A web application that harmonizes MODIS and VIIRS hotspots from NASA FIRMS into one consistent **burning activity calendar for any area on Earth**, 2000–2026:
 
-- month × year heat map for a selected region, with anomalies against the historical median;
-- map with MODIS / VIIRS / harmonized layers;
-- region and date range selection;
-- CSV download of the hotspots found;
-- published accuracy of the harmonization (MAE, R²) and its limitations.
+- global map with MODIS / VIIRS / harmonized layers on a 0.25° grid;
+- area of interest: a country, a predefined region, or a rectangle drawn on the map;
+- month × year heat map with the historical median and anomalies;
+- date range selection and CSV / PNG download;
+- published accuracy of the harmonization (MAE, R², globally and for Ukraine) and its limitations.
+
+**Showcase: Ukraine.** Detailed hotspots by oblast: seasonal agricultural burning, forest fires, and changes in burning regime in frontline regions compared with 2012–2021.
 
 ## Data
 
-- [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) — MODIS Collection 6.1 and VIIRS 375 m active fire products.
+- [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) — MODIS Collection 6.1 and VIIRS 375 m active fire products (Suomi NPP, NOAA-20, NOAA-21).
 - Other sources and libraries are listed in [References](#references).
 
 ## Repository layout
 
 | Folder | Contents |
 |---|---|
-| `pipeline/` | Download and cleaning of FIRMS hotspots → `fires` table |
+| `pipeline/` | Download of FIRMS hotspots, aggregation to the global grid, Ukraine hotspots table |
 | `model/` | Harmonization, monthly calendar, accuracy metrics |
 | `backend/` | API / static data export for the site |
 | `frontend/` | Web application |
