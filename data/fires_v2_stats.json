@@ -1,0 +1,188 @@
+{
+  "read": 2863487,
+  "kept": 2406185,
+  "dropType": 376168,
+  "dropBad": 0,
+  "dropNoRegion": 81134,
+  "dropSat": 0,
+  "snapped": 9846,
+  "byYear": {
+    "2000": {
+      "Terra": 53
+    },
+    "2001": {
+      "Terra": 27321
+    },
+    "2002": {
+      "Terra": 20164,
+      "Aqua": 7718
+    },
+    "2003": {
+      "Terra": 5637,
+      "Aqua": 6572
+    },
+    "2004": {
+      "Aqua": 9744,
+      "Terra": 10644
+    },
+    "2005": {
+      "Terra": 20766,
+      "Aqua": 21240
+    },
+    "2006": {
+      "Terra": 13628,
+      "Aqua": 12655
+    },
+    "2007": {
+      "Aqua": 18127,
+      "Terra": 16098
+    },
+    "2008": {
+      "Aqua": 24179,
+      "Terra": 27556
+    },
+    "2009": {
+      "Terra": 18677,
+      "Aqua": 19163
+    },
+    "2010": {
+      "Aqua": 10194,
+      "Terra": 8413
+    },
+    "2011": {
+      "Terra": 11551,
+      "Aqua": 14561
+    },
+    "2012": {
+      "Terra": 7425,
+      "Aqua": 10899,
+      "SNPP": 48789
+    },
+    "2013": {
+      "Aqua": 6770,
+      "Terra": 5708,
+      "SNPP": 42806
+    },
+    "2014": {
+      "Aqua": 29026,
+      "Terra": 21350,
+      "SNPP": 147810
+    },
+    "2015": {
+      "Terra": 21147,
+      "Aqua": 26004,
+      "SNPP": 153668
+    },
+    "2016": {
+      "Terra": 12878,
+      "Aqua": 12007,
+      "SNPP": 81445
+    },
+    "2017": {
+      "Terra": 16596,
+      "Aqua": 17370,
+      "SNPP": 103479
+    },
+    "2018": {
+      "Aqua": 9726,
+      "Terra": 7505,
+      "SNPP": 53860,
+      "NOAA20": 51528
+    },
+    "2019": {
+      "Terra": 11789,
+      "Aqua": 14728,
+      "SNPP": 80317,
+      "NOAA20": 79882
+    },
+    "2020": {
+      "Aqua": 13518,
+      "Terra": 11184,
+      "SNPP": 76623,
+      "NOAA20": 77269
+    },
+    "2021": {
+      "Aqua": 5144,
+      "Terra": 4474,
+      "SNPP": 31436,
+      "NOAA20": 31572
+    },
+    "2022": {
+      "Aqua": 7968,
+      "Terra": 6380,
+      "SNPP": 47142,
+      "NOAA20": 54343
+    },
+    "2023": {
+      "Terra": 4715,
+      "Aqua": 6508,
+      "SNPP": 37131,
+      "NOAA20": 36414
+    },
+    "2024": {
+      "Aqua": 13738,
+      "Terra": 9097,
+      "SNPP": 79257,
+      "NOAA20": 88071
+    },
+    "2025": {
+      "Aqua": 10893,
+      "Terra": 5288,
+      "SNPP": 59675,
+      "NOAA20": 60963
+    },
+    "2026": {
+      "Aqua": 11376,
+      "Terra": 6205,
+      "SNPP": 69341,
+      "NOAA20": 73659,
+      "NOAA21": 67628
+    }
+  },
+  "byConf": {
+    "Terra:nominal": 251255,
+    "Terra:high": 65609,
+    "Terra:low": 15385,
+    "Aqua:nominal": 262072,
+    "Aqua:low": 15714,
+    "Aqua:high": 62042,
+    "SNPP:nominal": 986129,
+    "SNPP:low": 75338,
+    "SNPP:high": 51312,
+    "NOAA20:nominal": 487155,
+    "NOAA20:low": 42139,
+    "NOAA20:high": 24407,
+    "NOAA21:nominal": 55827,
+    "NOAA21:high": 4140,
+    "NOAA21:low": 7661
+  },
+  "byRegion": {
+    "Luhansk Oblast": 164391,
+    "Volyn Oblast": 40271,
+    "Zhytomyr Oblast": 91213,
+    "Rivne Oblast": 70585,
+    "Cherkasy Oblast": 49465,
+    "Vinnytsia Oblast": 73618,
+    "Lviv Oblast": 65891,
+    "Kharkiv Oblast": 176825,
+    "Chernivtsi Oblast": 13306,
+    "Ivano-Frankivsk Oblast": 22291,
+    "Donetsk Oblast": 280963,
+    "Dnipropetrovsk Oblast": 164278,
+    "Autonomous Republic of Crimea": 36240,
+    "Mykolaiv Oblast": 84420,
+    "Odesa Oblast": 150550,
+    "Kherson Oblast": 177871,
+    "Zaporizhzhia Oblast": 170355,
+    "Kyiv Oblast": 94819,
+    "Kirovohrad Oblast": 87401,
+    "Khmelnytskyi Oblast": 48180,
+    "Poltava Oblast": 101334,
+    "Zakarpattia Oblast": 17040,
+    "Sumy Oblast": 80950,
+    "Chernihiv Oblast": 114273,
+    "Ternopil Oblast": 27962,
+    "Kyiv City": 1260,
+    "Sevastopol City": 433
+  }
+}

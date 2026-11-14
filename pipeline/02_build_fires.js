@@ -1,14 +1,15 @@
 // Written with the assistance of Claude Code (AI); reviewed and run by the P1t0n data engineer.
 // Крок 2. Очищення точок MODIS + VIIRS і привʼязка до областей → data/out/fires.csv
-// Формат (контракт команди): date,lat,lon,sensor,frp,confidence,region
+// Формат (контракт v2): date,lat,lon,sensor,satellite,frp,confidence,cell_id,region
 // Запуск: node pipeline/02_build_fires.js
 const fs = require('fs');
 const path = require('path');
+const { satCode, cellId, confClass, DIR_SENSOR } = require('./lib');
 
 const RAW = path.join(__dirname, 'data', 'raw');
-const OUT = path.join(__dirname, 'data', 'out');      // локально, не в git: fires.csv (~104 МБ)
+const OUT = path.join(__dirname, 'data', 'out');      // локально, не в git: повний fires.csv
 const SHARED = path.join(__dirname, '..', 'data');   // у git: малі похідні файли для команди
-const FIRES_VERSION = 'v1';
+const FIRES_VERSION = 'v2';
 fs.mkdirSync(OUT, { recursive: true });
 fs.mkdirSync(SHARED, { recursive: true });
 
@@ -79,26 +80,21 @@ function regionOf(lon, lat) {
   return best;
 }
 
-// ---------- Confidence → спільна шкала ----------
-// MODIS 0–100 → класи з MODIS C6 User Guide: <30 low, 30–79 nominal, ≥80 high
-// VIIRS l/n/h → low/nominal/high
-function confClass(sensor, v) {
-  if (sensor === 'MODIS') { const n = +v; return n < 30 ? 'low' : n < 80 ? 'nominal' : 'high'; }
-  return { l: 'low', n: 'nominal', h: 'high' }[v.trim().toLowerCase()] || 'unknown';
-}
+// Confidence → спільна шкала: див. confClass у lib.js
 
 // ---------- Читання CSV ----------
-const stats = { read: 0, kept: 0, dropType: 0, dropBad: 0, dropNoRegion: 0, snapped: 0, byYear: {}, byConf: {}, byRegion: {} };
+const stats = { read: 0, kept: 0, dropType: 0, dropBad: 0, dropNoRegion: 0, dropSat: 0, snapped: 0, byYear: {}, byConf: {}, byRegion: {} };
 const rows = [];
 
 function processDir(dir, sensor) {
+  if (!fs.existsSync(path.join(RAW, dir))) return;
   const files = fs.readdirSync(path.join(RAW, dir)).filter(f => f.endsWith('.csv')).sort();
   for (const f of files) {
     SNAP_DEG = isApiFile(f) ? SNAP_DEG_API : SNAP_DEG_DEFAULT;
     const lines = fs.readFileSync(path.join(RAW, dir, f), 'utf8').split(/\r?\n/);
     const h = lines[0].split(',');
     const ix = n => h.indexOf(n);
-    const I = { lat: ix('latitude'), lon: ix('longitude'), date: ix('acq_date'), frp: ix('frp'), conf: ix('confidence'), type: ix('type') };
+    const I = { lat: ix('latitude'), lon: ix('longitude'), date: ix('acq_date'), frp: ix('frp'), conf: ix('confidence'), type: ix('type'), sat: ix('satellite') };
     for (let i = 1; i < lines.length; i++) {
       if (!lines[i]) continue;
       const c = lines[i].split(',');
@@ -107,6 +103,8 @@ function processDir(dir, sensor) {
       if (I.type >= 0 && c[I.type] !== '0') { stats.dropType++; continue; }
       const lat = +c[I.lat], lon = +c[I.lon], date = c[I.date];
       if (!isFinite(lat) || !isFinite(lon) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { stats.dropBad++; continue; }
+      const satellite = satCode(c[I.sat]);
+      if (!satellite) { stats.dropSat++; continue; }
       let region = null;
       for (const r of regions) { // швидка перевірка «всередині»
         const [a, b, cc, d] = r.bbox;
@@ -118,27 +116,39 @@ function processDir(dir, sensor) {
       const confidence = confClass(sensor, c[I.conf]);
       const frp = c[I.frp] === '' ? '' : (+c[I.frp]).toString();
       // 4 знаки ≈ 11 м — значно точніше за піксель (375 м / 1 км), а файл менший
-      rows.push([date, +lat.toFixed(4) + '', +lon.toFixed(4) + '', sensor, frp, confidence, region]);
+      rows.push([date, +lat.toFixed(4) + '', +lon.toFixed(4) + '', sensor, satellite, frp, confidence, cellId(lat, lon), region]);
       stats.kept++;
       const y = date.slice(0, 4);
-      (stats.byYear[y] ||= { MODIS: 0, VIIRS: 0 })[sensor]++;
-      stats.byConf[sensor + ':' + confidence] = (stats.byConf[sensor + ':' + confidence] || 0) + 1;
+      const by = (stats.byYear[y] ||= {});
+      by[satellite] = (by[satellite] || 0) + 1;
+      stats.byConf[satellite + ':' + confidence] = (stats.byConf[satellite + ':' + confidence] || 0) + 1;
       stats.byRegion[region] = (stats.byRegion[region] || 0) + 1;
     }
     process.stdout.write(`  ${f}\n`);
   }
 }
 
-console.log('Читаю MODIS…'); processDir('modis', 'MODIS');
-console.log('Читаю VIIRS S-NPP…'); processDir('viirs-snpp', 'VIIRS');
+for (const dir of Object.keys(DIR_SENSOR)) { console.log(`Читаю ${dir}…`); processDir(dir, DIR_SENSOR[dir]); }
 
-rows.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[3] < b[3] ? -1 : a[3] > b[3] ? 1 : 0));
+const SAT_ORDER = { Terra: 0, Aqua: 1, SNPP: 2, NOAA20: 3, NOAA21: 4 };
+rows.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : SAT_ORDER[a[4]] - SAT_ORDER[b[4]]));
 const q = s => (/[",]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
-const out = ['date,lat,lon,sensor,frp,confidence,region', ...rows.map(r => r.map(q).join(','))].join('\n') + '\n';
+const out = ['date,lat,lon,sensor,satellite,frp,confidence,cell_id,region', ...rows.map(r => r.map(q).join(','))].join('\n') + '\n';
 fs.writeFileSync(path.join(OUT, 'fires.csv'), out);
-// fires.csv > 100 MB не пройде в GitHub — у репозиторій кладемо стиснуту копію (~18 МБ)
-const GZ = path.join(SHARED, `fires_${FIRES_VERSION}.csv.gz`);
-fs.writeFileSync(GZ, require('zlib').gzipSync(out, { level: 9 }));
+// Повний fires.csv (~180 МБ) у git не кладемо. Стиснута копія (~28 МБ) більша за командний ліміт ~20 МБ,
+// тому ділимо її на дві частини за роками; разом це та сама таблиця (заголовок у кожній частині).
+const zlib = require('zlib');
+const HEADER = 'date,lat,lon,sensor,satellite,frp,confidence,cell_id,region';
+const PARTS = [['2000', '2015'], ['2016', '2026']];
+for (const f of fs.readdirSync(SHARED)) if (/^fires_v\d+(_\d{4}-\d{4})?\.csv\.gz$/.test(f) && f.startsWith(`fires_${FIRES_VERSION}`)) fs.unlinkSync(path.join(SHARED, f));
+const gzFiles = [];
+for (const [a, b] of PARTS) {
+  const part = rows.filter(r => r[0].slice(0, 4) >= a && r[0].slice(0, 4) <= b).map(r => r.map(q).join(','));
+  const file = path.join(SHARED, `fires_${FIRES_VERSION}_${a}-${b}.csv.gz`);
+  fs.writeFileSync(file, zlib.gzipSync([HEADER, ...part].join('\n') + '\n', { level: 9 }));
+  gzFiles.push(file);
+}
+const GZ = gzFiles[0];
 
 // Довідкові файли для бекенду/фронтенду
 const names = regions.map(r => r.name).sort();
@@ -152,7 +162,9 @@ console.log(`Відкинуто type≠0:       ${stats.dropType}`);
 console.log(`Відкинуто зіпсованих:   ${stats.dropBad}`);
 console.log(`Поза областями:         ${stats.dropNoRegion}  (сусідні країни з API-прямокутника 2026)`);
 console.log(`Привʼязано до найближчої області: ${stats.snapped}  (≤5 км для річних CSV, ≤1 км для 2026)`);
-console.log(`Записано у fires.csv:   ${stats.kept}  (${(out.length / 1048576).toFixed(1)} MB; ${path.relative(path.join(__dirname, '..'), GZ)}: ${(fs.statSync(GZ).size / 1048576).toFixed(1)} MB)`);
-console.log('\nРік   MODIS   VIIRS');
-for (const y of Object.keys(stats.byYear).sort()) console.log(`${y}  ${String(stats.byYear[y].MODIS).padStart(6)}  ${String(stats.byYear[y].VIIRS).padStart(6)}`);
+console.log(`Записано у fires.csv:   ${stats.kept}  (${(out.length / 1048576).toFixed(1)} MB)`);
+for (const f of gzFiles) console.log(`  ${path.relative(path.join(__dirname, '..'), f)}: ${(fs.statSync(f).size / 1048576).toFixed(1)} MB`);
+const SATS = Object.keys(SAT_ORDER);
+console.log('\nРік   ' + SATS.map(s => s.padStart(7)).join(' '));
+for (const y of Object.keys(stats.byYear).sort()) console.log(`${y}  ` + SATS.map(s => String(stats.byYear[y][s] || '').padStart(7)).join(' '));
 console.log('\nConfidence:', stats.byConf);

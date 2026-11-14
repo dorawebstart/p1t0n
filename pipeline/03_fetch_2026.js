@@ -45,7 +45,13 @@ const SENSORS = [
     header: 'latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_t31,frp,daynight,type' },
   { name: 'VIIRS', sp: 'VIIRS_SNPP_SP', nrt: 'VIIRS_SNPP_NRT', end: SNPP_END < TODAY ? SNPP_END : TODAY, dir: 'viirs-snpp', file: 'viirs-snpp_2026_Ukraine.csv',
     header: 'latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight,type' },
+  // NOAA-20 — місток до Suomi NPP; NOAA-21 — лише 2026 (у річних файлах його немає)
+  { name: 'VIIRS NOAA-20', sp: 'VIIRS_NOAA20_SP', nrt: 'VIIRS_NOAA20_NRT', end: TODAY, dir: 'viirs-jpss1', file: 'viirs-jpss1_2026_Ukraine.csv',
+    header: 'latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight,type' },
+  { name: 'VIIRS NOAA-21', sp: 'VIIRS_NOAA21_SP', nrt: 'VIIRS_NOAA21_NRT', end: TODAY, dir: 'viirs-jpss2', file: 'viirs-jpss2_2026_Ukraine.csv',
+    header: 'latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight,type' },
 ];
+const ONLY = (process.env.ONLY || '').split(',').filter(Boolean); // напр. ONLY="VIIRS NOAA-20,VIIRS NOAA-21"
 
 const addDays = (d, n) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -75,7 +81,7 @@ function parseCsv(text) {
 // --- Маска статичних джерел з історії (type=2) ---
 function buildStaticMask() {
   const cells = new Set();
-  for (const dir of ['modis', 'viirs-snpp']) {
+  for (const dir of ['modis', 'viirs-snpp', 'viirs-jpss1']) {
     for (const f of fs.readdirSync(path.join(RAW, dir)).filter(f => f.endsWith('.csv') && !f.includes('2026'))) {
       const lines = fs.readFileSync(path.join(RAW, dir, f), 'utf8').split(/\r?\n/);
       const h = lines[0].split(','), iLat = h.indexOf('latitude'), iLon = h.indexOf('longitude'), iT = h.indexOf('type');
@@ -105,6 +111,8 @@ function isStatic(cells, lat, lon) {
   console.log(`  клітинок ~1 км з type=2: ${cells.size}`);
 
   for (const s of SENSORS) {
+    if (ONLY.length && !ONLY.includes(s.name)) continue;
+    fs.mkdirSync(path.join(RAW, s.dir), { recursive: true });
     const spMax = avail[s.sp] && avail[s.sp].max >= YEAR_START ? avail[s.sp].max : null;
     const plan = [];
     if (spMax) plan.push({ src: s.sp, from: YEAR_START, to: spMax < s.end ? spMax : s.end });

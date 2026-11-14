@@ -1,4 +1,4 @@
-# Сирі CSV FIRMS (~150 МБ) завантажує 01_download.js / 03_fetch_2026.js,
-# повний fires.csv (~104 МБ) будує 02_build_fires.js. Стиснута копія — у ../data/fires_v1.csv.gz
+# Сирі CSV і архіви світу FIRMS (≈ 10 ГБ), повний fires.csv (~180 МБ), частини й повна grid_monthly —
+# усе будують скрипти; у git лише малі файли в ../data/ (fires_v2_*.csv.gz, grid_monthly_UKR_v1.csv.gz)
 data/
 *.part
