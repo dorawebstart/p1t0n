@@ -56,14 +56,14 @@
 Рекомендований варіант — статичний сайт із наперед порахованими файлами даних. Обґрунтування й альтернативи — у `CLAUDE.md`, розділ «Хостинг».
 
 1. Зібрати фронтенд у теку зі статичними файлами (`npm run build` → `dist/`).
-2. Покласти файли даних поруч: `data/regions.json`, `data/calendar/<region>.json`, `data/fires/<region>/<YYYY-MM>.json`, `data/metrics.json`.
+2. Покласти файли даних поруч: `data/regions.json`, `data/grid/<tile>.json`, `data/calendar/<region_id>.json`, `data/fires/UA/<YYYY-MM>.json`, `data/metrics.json`.
 3. Основний хост: підключити репозиторій GitHub до Vercel або Cloudflare Pages, вказати команду збірки й теку результату. Кожен merge у `main` оновлює сайт.
 4. Дзеркало: увімкнути GitHub Pages для того самого репозиторію (або другий із двох хостів вище).
 5. Перевірити обидві адреси в приватному вікні.
 6. Подати адресу основного сайту на класифікацію: https://www.fortiguard.com/faq/wfratingsubmit — категорія Education або Web-based Application, Company Name `N/A`.
 7. Після фіча-фризу нічого не деплоїти без перевірки на дзеркалі.
 
-Ліміти безкоштовних тарифів перевірити на сайті хоста в день деплою. Якщо файли точок завеликі — агрегувати по сітці ~0,1° на місяць замість окремих точок.
+Ліміти безкоштовних тарифів перевірити на сайті хоста в день деплою. Якщо плитки сітки завеликі — перейти з 0,25° на 0,5° або стиснути JSON (gzip віддають усі ці хости).
 
 ## Заготовки текстів для форми (англійською)
 
@@ -71,20 +71,21 @@
 
 ### Project Name
 ```
-Fire Calendar of Ukraine
+TODO: остаточна назва від команди (робоча: Harmonized Fire Calendar)
 ```
-TODO: остаточна назва від команди.
 
 ### High-Level Project Summary
 ```
 NASA satellites have recorded active fires since 2000, but the record is split
-between MODIS (1 km pixels) and VIIRS (375 m pixels). VIIRS detects several times
-more hotspots for the same fires, so the two archives cannot simply be added
-together. We built a web application that harmonizes MODIS and VIIRS hotspots from
-NASA FIRMS into one consistent burning activity calendar for Ukraine, 2000-2026.
-A user selects a region and period, sees a month-by-year heat map with anomalies
-against the historical median, switches map layers between MODIS, VIIRS and the
-harmonized record, and downloads the data as CSV. The tool gives emergency
+between MODIS (1 km pixels), whose satellites are reaching the end of their
+mission, and its successor VIIRS (375 m pixels, on several satellites). VIIRS
+detects several times more hotspots for the same fires, so the archives cannot
+simply be added together. We built a web application that harmonizes MODIS and
+VIIRS hotspots from NASA FIRMS into one consistent burning activity calendar for
+any area on Earth, 2000-2026. A user picks a country, a region or draws an area
+on the map, sees a month-by-year heat map with anomalies against the historical
+median, switches map layers between MODIS, VIIRS and the harmonized record, and
+downloads the data. Ukraine is our detailed showcase. The tool gives emergency
 responders, scientists and land managers a single comparable picture of when and
 where burning happens.
 ```
@@ -135,12 +136,14 @@ watermark.
 NASA FIRMS (Fire Information for Resource Management System),
 https://firms.modaps.eosdis.nasa.gov/
 - MODIS Collection 6.1 active fire product (MCD14DL / MOD14 / MYD14), Terra and
-  Aqua, TODO years - used as the long historical record.
-- VIIRS 375 m active fire product (VNP14IMG, VJ114IMG), Suomi NPP and NOAA-20/21,
-  TODO years - used as the reference for harmonization and for recent years.
-We used hotspot location, acquisition date, sensor, confidence and fire radiative
-power to build regional monthly counts and the harmonized calendar.
-TODO: add NASA GIBS if used for base maps.
+  Aqua, global, TODO years - used as the long historical record.
+- VIIRS 375 m active fire product (VNP14IMG Suomi NPP, VJ114IMG NOAA-20,
+  VJ214IMG NOAA-21), global, TODO years - used as the reference for
+  harmonization and for recent years.
+We aggregated hotspot location, acquisition date, sensor, satellite and fire
+radiative power into monthly counts on a global 0.25-degree grid, and kept
+individual hotspots for Ukraine as the detailed showcase.
+TODO: add MCD12Q1 land cover and NASA GIBS if used.
 ```
 
 ### Space Agency Partner Data and Other References
@@ -166,9 +169,9 @@ TODO: list every item actually used, for example:
 ## Слайди ≤ 7
 
 1. Назва проєкту, команда P1t0n, імена учасників, челендж
-2. Проблема: два сенсори, непорівнянні ряди, хибний «стрибок» після 2012
-3. Рішення: гармонізація + календар (знімок екрана)
+2. Проблема: MODIS завершує службу, VIIRS бачить більше — хибний «стрибок» після 2012
+3. Рішення: глобальна гармонізована карта + календар для будь-якої зони (знімок екрана)
 4. Як працює для користувача: зона → період → календар → завантаження
-5. Дані NASA і точність (MAE, R², обмеження)
-6. Що видно для України (аномалії режиму горіння, без тверджень про причини)
+5. Дані NASA і точність (MAE, R² для світу й України, обмеження)
+6. Приклад — Україна: аномалії режиму горіння, без тверджень про причини
 7. Вплив і наступні кроки; адреса сайту
