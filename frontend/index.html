@@ -121,10 +121,28 @@
 
         <div class="problem-grid">
           <figure id="problem-figure" class="glass-panel problem-figure">
-            <img id="problem-img" src="./public/figures/raw_series_ukraine.png"
-                 alt="Yearly fire hotspot counts for Ukraine, 2001–2025: raw MODIS (Terra + Aqua) bars and raw VIIRS Suomi NPP bars from 2012, about three times higher, with the VIIRS/MODIS ratio line."
-                 loading="lazy" />
-            <figcaption>Raw yearly hotspot counts for Ukraine: MODIS (Terra + Aqua) vs VIIRS Suomi NPP (NASA FIRMS).</figcaption>
+            <div class="raw-chart-head">
+              <div class="control-group">
+                <div class="segmented-control" id="raw-toggle" role="group" aria-label="Area of the yearly counts">
+                  <button type="button" class="seg-btn active" data-area="ukraine" aria-pressed="true" title="Yearly raw counts for Ukraine">Ukraine</button>
+                  <button type="button" class="seg-btn" data-area="world" aria-pressed="false" title="Yearly raw counts for the whole world">World</button>
+                </div>
+                <span class="helper">Which area the bars count.</span>
+              </div>
+              <div class="raw-legend" aria-hidden="true">
+                <span class="raw-key"><span class="raw-swatch raw-modis"></span> MODIS (Terra + Aqua)</span>
+                <span class="raw-key"><span class="raw-swatch raw-snpp"></span> VIIRS Suomi NPP</span>
+              </div>
+            </div>
+            <div id="raw-chart" class="raw-chart" role="img"
+                 aria-label="Raw yearly fire hotspot counts, 2001–2025: MODIS (Terra + Aqua) and VIIRS Suomi NPP from 2012.">
+              <p class="empty-state raw-loading">Loading yearly counts…</p>
+            </div>
+            <p class="helper raw-readout" id="raw-readout">Hover or tap a bar to read its numbers.</p>
+            <figcaption>
+              <span id="raw-caption">Raw yearly hotspot counts: MODIS (Terra + Aqua) vs VIIRS Suomi NPP (NASA FIRMS).</span>
+              <a class="text-link raw-download" href="./public/figures/raw_series_ukraine.png" download title="Static image of the Ukraine chart for reports">Download figure (PNG)</a>
+            </figcaption>
           </figure>
           <div class="glass-panel science-card">
             <p class="problem-text">
@@ -244,6 +262,8 @@
             <p class="card-desc">Hotspot counts behave like Poisson counts, so the relative error is about</p>
             <div class="formula">relative error ≈ 1 / √N</div>
             <p class="card-desc">100 hotspots → ±10 %; 10 hotspots → ±32 %. Winter months with few fires are therefore much noisier than the summer and autumn peaks.</p>
+            <div id="chart-noise" class="mini-chart" role="img" aria-label="Relative counting error 1 divided by the square root of N, for N from 1 to 10,000 hotspots, logarithmic x axis."></div>
+            <p class="helper">Winter months before 2012 have N in the single digits.</p>
           </div>
 
           <div class="glass-panel science-card">
@@ -252,19 +272,57 @@
             <div class="formula">M(m) = median of H(y, m) over all years</div>
             <div class="formula">z = (H − M) / σ<sub>m</sub>,&nbsp;&nbsp; |z| &gt; 2 is highlighted</div>
             <p class="card-desc">The expected range is the 25th–75th percentile of past years for that month (shown when available). These are statistics of past years, not a weather forecast.</p>
+            <div class="eyebrow eyebrow-gap" id="chart-august-title">Live example: August in Ukraine</div>
+            <div id="chart-august" class="mini-chart" role="img" aria-label="Harmonized hotspot counts for every August in Ukraine, with the median, the 25th–75th percentile band and the largest anomaly."></div>
+            <p class="helper" id="chart-august-note">One dot per year (harmonized count); band = 25th–75th percentile; line = median.</p>
           </div>
         </div>
 
-        <div class="glass-panel science-card coef-card">
-          <div class="eyebrow">Scale factors by month</div>
-          <h3>k<sub>Aqua</sub> and k<sub>Terra</sub></h3>
-          <p class="card-desc">Ukraine, trained 2012–2020. k is smallest in spring and autumn and largest in summer and winter. Our hypothesis: large agricultural burns dominate in spring and autumn and MODIS sees many of them, while smaller fires in other months are missed more often. The world grid uses the same rule per 10° latitude band × month.</p>
-          <p id="coef-missing" class="empty-state" hidden>Coefficient table not available yet.</p>
-          <div class="table-wrap">
-            <table class="data-table" id="coef-table" hidden>
-              <thead><tr><th scope="col">Month</th><th scope="col">k<sub>Aqua</sub></th><th scope="col">k<sub>Terra</sub></th></tr></thead>
-              <tbody></tbody>
-            </table>
+        <div class="method-row">
+          <div class="glass-panel science-card coef-card">
+            <div class="eyebrow">Scale factors by month</div>
+            <h3>k<sub>Aqua</sub> and k<sub>Terra</sub></h3>
+            <p class="card-desc">Ukraine, trained 2012–2020. k is smallest in spring and autumn and largest in summer and winter. Our hypothesis: large agricultural burns dominate in spring and autumn and MODIS sees many of them, while smaller fires in other months are missed more often. The world grid uses the same rule per 10° latitude band × month.</p>
+            <p id="coef-missing" class="empty-state" hidden>Coefficient table not available yet.</p>
+            <div class="coef-body">
+              <div class="table-wrap">
+                <table class="data-table" id="coef-table" hidden>
+                  <thead><tr><th scope="col">Month</th><th scope="col">k<sub>Aqua</sub></th><th scope="col">k<sub>Terra</sub></th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="coef-chart-wrap">
+                <div class="chart-legend" aria-hidden="true">
+                  <span class="raw-key"><span class="raw-swatch sw-aqua"></span> k<sub>Aqua</sub></span>
+                  <span class="raw-key"><span class="raw-swatch sw-terra"></span> k<sub>Terra</sub></span>
+                </div>
+                <div id="chart-coef" class="mini-chart" role="img" aria-label="Grouped bar chart of the monthly scale factors k Aqua and k Terra, January to December."></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-panel science-card valid-card">
+            <div class="card-header">
+              <div class="card-title-block">
+                <div class="eyebrow">Validation on unseen years (2021–2025)</div>
+                <h3>Monthly totals: real vs translated</h3>
+              </div>
+              <span class="r2-badge" id="valid-r2" title="Coefficient of determination of translated MODIS vs real Suomi NPP, monthly totals 2021–2025">R² —</span>
+            </div>
+            <div class="control-group valid-controls">
+              <div class="segmented-control" id="valid-toggle" role="group" aria-label="Area of the validation chart">
+                <button type="button" class="seg-btn active" data-area="ukraine" aria-pressed="true" title="Validation for Ukraine">Ukraine</button>
+                <button type="button" class="seg-btn" data-area="world" aria-pressed="false" title="Validation for the whole world">World</button>
+              </div>
+              <span class="helper">Which area's monthly totals are compared.</span>
+            </div>
+            <div class="chart-legend" aria-hidden="true">
+              <span class="raw-key"><span class="line-sample ls-snpp"></span> Real Suomi NPP</span>
+              <span class="raw-key"><span class="line-sample ls-scaled"></span> MODIS translated</span>
+              <span class="raw-key"><span class="line-sample ls-raw"></span> Raw MODIS</span>
+            </div>
+            <div id="chart-valid" class="mini-chart" role="img" aria-label="Line chart of monthly hotspot totals 2021–2025: real Suomi NPP, MODIS translated to the Suomi NPP scale, and raw MODIS."></div>
+            <p class="card-desc">The factors were fitted on 2012–2020 only. If the dashed line follows the solid one, the translation works on years it never saw; the grey line shows how far off raw MODIS is.</p>
           </div>
         </div>
       </div>
@@ -416,30 +474,49 @@
         <div class="workspace-top-bar">
           <div>
             <div class="eyebrow">06 • Map</div>
-            <h2 class="page-heading">Hotspots of the selected month</h2>
+            <h2 class="page-heading">Fire activity of the selected month</h2>
           </div>
         </div>
 
         <div class="map-card glass-panel">
           <div class="card-header">
             <div class="card-title-block">
-              <h3 id="map-title">Ukraine hotspots</h3>
+              <h3 id="map-title">World cells</h3>
               <p class="card-desc" id="map-status">Select a month in the calendar.</p>
             </div>
             <div class="map-tools">
-              <div class="segmented-control" id="points-toggle" role="group" aria-label="Which hotspots to show">
-                <button type="button" class="seg-btn active" data-points="all" title="Show MODIS and VIIRS hotspots">All</button>
-                <button type="button" class="seg-btn" data-points="MODIS" title="Show MODIS hotspots only">MODIS</button>
-                <button type="button" class="seg-btn" data-points="VIIRS" title="Show VIIRS hotspots only">VIIRS</button>
+              <div class="control-group">
+                <div class="segmented-control" id="layer-toggle" role="group" aria-label="Map layer">
+                  <button type="button" class="seg-btn active" data-layer="world" aria-pressed="true" title="Harmonized hotspot counts per 1° cell, whole world, 2000–2025">World cells (1°)</button>
+                  <button type="button" class="seg-btn" data-layer="ukraine" aria-pressed="false" title="Individual MODIS and VIIRS hotspots in Ukraine">Ukraine points</button>
+                </div>
+                <span class="helper">What the map draws.</span>
               </div>
-              <button type="button" id="btn-points-csv" class="btn btn-outline btn-csv" title="Download the hotspots shown on the map as CSV">Download points CSV</button>
+              <div class="control-group" id="points-tools">
+                <div class="map-tools-row">
+                  <div class="segmented-control" id="points-toggle" role="group" aria-label="Which hotspots to show">
+                    <button type="button" class="seg-btn active" data-points="all" title="Show MODIS and VIIRS hotspots">All</button>
+                    <button type="button" class="seg-btn" data-points="MODIS" title="Show MODIS hotspots only">MODIS</button>
+                    <button type="button" class="seg-btn" data-points="VIIRS" title="Show VIIRS hotspots only">VIIRS</button>
+                  </div>
+                  <button type="button" id="btn-points-csv" class="btn btn-outline btn-csv" title="Download the hotspots shown on the map as CSV">Download points CSV</button>
+                </div>
+                <span class="helper">Ukraine points only: sensor filter and CSV.</span>
+              </div>
             </div>
           </div>
-          <p class="helper helper-block">The map follows the month selected in the calendar. Point data exist for Ukraine only; click a point for its details.</p>
+          <p class="helper helper-block">The map follows the month selected in the calendar. <strong>World cells (1°)</strong>: harmonized hotspot counts (Suomi NPP scale) per 1° × 1° cell for the whole world, 2000–2025; click a cell for its number. <strong>Ukraine points</strong>: individual MODIS and VIIRS hotspots in Ukraine for the months listed in the status line; click a point for its details.</p>
+          <p class="map-note" id="map-note" role="status" hidden></p>
 
           <div id="map-block" class="map-wrapper">
             <div id="map"></div>
-            <div class="map-legend">
+            <div class="map-legend map-legend-cells" id="legend-cells" hidden>
+              <div class="legend-title">Harmonized hotspots per 1° cell</div>
+              <div class="cells-gradient" id="cells-gradient"></div>
+              <div class="cells-ticks" id="cells-ticks"></div>
+              <div class="legend-sub" id="cells-sub">Log scale</div>
+            </div>
+            <div class="map-legend" id="legend-points">
               <div class="legend-title">Fire radiative power (FRP)</div>
               <div class="legend-item"><span class="dot low"></span> &lt; 25 MW</div>
               <div class="legend-item"><span class="dot med"></span> 25–80 MW</div>
@@ -505,7 +582,7 @@
               <li><strong>Natural Earth</strong> — country boundaries (public domain).</li>
               <li><strong>OpenStreetMap</strong> contributors — map tiles.</li>
               <li><strong>Leaflet</strong> 1.9.4 — interactive map.</li>
-              <li><strong>three.js</strong> r128 — decorative background.</li>
+              <li><strong>three.js</strong> r128 — 3D chart of raw yearly counts and decorative background.</li>
             </ul>
           </div>
         </div>
