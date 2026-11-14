@@ -7,8 +7,8 @@ Inputs (repository paths):
   model/out/coefficients_ukraine.csv  Yehor: k_aqua(month), k_terra(month)
   data/fires_v2_*.csv.gz              Mykola: single hotspots of Ukraine with oblast (`region`)
   data/regions.geojson                oblast boundaries (for bbox)
-  analysis/out/calendar.csv           Ivan (optional): if present, used instead of computing oblast calendars here
-  analysis/out/metrics.json           Ivan (optional): validation metrics
+  analysis/out/calendar.csv           analysis/build_calendar.py (optional): if present, used instead of computing oblast calendars here
+  analysis/out/metrics.json           analysis (optional): validation metrics
   docs/figures/raw_series_ukraine.png figure for the "Problem" section
 
 Oblast calendars use exactly Yehor's rule (model/harmonize.py, combine_modis):
@@ -247,7 +247,7 @@ def main():
         cal = pd.read_csv(ivan)
         check_cols(cal, ["region_id", "year", "month", "modis_count", "viirs_count", "harmonized_count",
                          "median_count", "anomaly"], "analysis/out/calendar.csv")
-        source = "analysis/out/calendar.csv (Ivan)"
+        source = "analysis/out/calendar.csv (analysis/build_calendar.py, national Terra/Aqua weights)"
     else:
         cal = add_stats(pd.concat([ua, oblast_calendars(fires, last_ym)], ignore_index=True))
         source = "computed in backend/export_static.py from Yehor's coefficients"
