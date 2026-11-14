@@ -1,751 +1,1045 @@
 /**
- * Глобальний Жар-календар вогню — Сторінковий скрол + 3D Orbital & Architectural Visualizations
- * Команда P1t0n — NASA Space Apps Challenge 2026
+ * Harmonized Fire Calendar — Team P1t0n, NASA Space Apps Challenge 2026 (local event: Dnipro).
+ * Design and first version: Mykhailo Revuzhenko (P1t0n). Rework with AI assistance (Claude).
+ *
+ * All data come through window.P1t0nAPI (api.js). This file never invents numbers:
+ * if a file is missing, the UI says so.
  */
+(function () {
+  'use strict';
 
-const API_BASE = window.location.hostname === 'localhost' && window.location.port !== '8000'
-  ? 'http://localhost:8000/api'
-  : '/api';
+  var API = window.P1t0nAPI;
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const GLOBAL_REGIONS = {
-  "Ukraine (Україна)": { center: [48.3794, 31.1656], zoom: 6 },
-  "Amazon Basin (Амазонія)": { center: [-3.4653, -62.2159], zoom: 5 },
-  "California (Каліфорнія, США)": { center: [36.7783, -119.4179], zoom: 6 },
-  "Siberia (Сибір, РФ)": { center: [60.0, 100.0], zoom: 4 },
-  "Mediterranean (Середземномор'я)": { center: [38.0, 20.0], zoom: 5 },
-  "Australia (Австралія)": { center: [-25.2744, 133.7751], zoom: 5 },
-  "Central Africa (Центральна Африка)": { center: [0.0, 20.0], zoom: 5 }
-};
+  // Inferno-like, perceptually uniform, colour-blind safe sequential scale (9 steps).
+  var PALETTE = ['#1b0c41', '#420a68', '#6a176e', '#932667', '#bc3754', '#dd513a', '#f37819', '#fca50a', '#f6d746'];
+  var NODATA_COLOR = 'rgba(255,255,255,0.04)';
+  var ANOMALY_Z = 2;
 
-const MONTHS_UA = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'];
+  var SERIES = {
+    harmonized: { field: 'harmonized_count', label: 'Harmonized count', short: 'Harmonized (Suomi NPP scale)' },
+    modis: { field: 'modis_count', label: 'Raw MODIS count', short: 'Raw MODIS (Terra + Aqua)' },
+    viirs: { field: 'viirs_count', label: 'Raw VIIRS count', short: 'Raw VIIRS (Suomi NPP)' }
+  };
+  var CAL_COLUMNS = ['region_id', 'year', 'month', 'modis_count', 'viirs_count', 'harmonized_count', 'median_count', 'anomaly', 'p25_count', 'p75_count'];
+  var FIRE_COLUMNS = ['date', 'lat', 'lon', 'frp', 'sensor', 'satellite', 'region_id'];
 
-const state = {
-  region: 'Ukraine (Україна)',
-  fromYear: 2000,
-  toYear: 2026,
-  selectedMonth: '2024-08',
-  sensor: 'harmonized',
-  mapMode: 'markers',
-  anomaliesOnly: false,
-  calendarData: [],
-  currentFires: [],
-  isBackendLive: false
-};
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let map;
-let firesLayerGroup;
-
-document.addEventListener('DOMContentLoaded', async () => {
-  init3DSpaceBackground();
-  initSpotlightCards();
-  initScrollSpy();
-  initMap();
-  bindEvents();
-  
-  // Ініціалізація ексклюзивних 3D моделей для секції 4
-  initArchitecture3DModels();
-
-  await loadRegions();
-  await loadMetrics();
-  await refreshDashboard();
-});
-
-/* Скрол-спай для підсвічування кнопок навігації при скролі */
-function initScrollSpy() {
-  const sections = document.querySelectorAll('.site-section');
-  const navTabs = document.querySelectorAll('.nav-tab');
-
-  window.addEventListener('scroll', () => {
-    let current = '';
-    sections.forEach(sec => {
-      const secTop = sec.offsetTop;
-      const secHeight = sec.clientHeight;
-      if (window.scrollY >= (secTop - 250)) {
-        current = sec.getAttribute('id');
-      }
-    });
-
-    navTabs.forEach(tab => {
-      tab.classList.remove('active');
-      if (tab.getAttribute('data-target') === current) {
-        tab.classList.add('active');
-      }
-    });
-  });
-}
-
-function init3DSpaceBackground() {
-  const canvas = document.getElementById('globe-canvas');
-  if (!canvas || typeof THREE === 'undefined') return;
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.z = 16;
-
-  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-  const earthGroup = new THREE.Group();
-  earthGroup.position.set(4.8, 0.6, -1.5);
-  scene.add(earthGroup);
-
-  const sphereGeo = new THREE.SphereGeometry(5.3, 44, 44);
-  const wireMat = new THREE.MeshBasicMaterial({
-    color: 0xff5e2b,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.09
-  });
-  const wireSphere = new THREE.Mesh(sphereGeo, wireMat);
-  earthGroup.add(wireSphere);
-
-  const dotsCount = 2000;
-  const dotsGeo = new THREE.BufferGeometry();
-  const positions = new Float32Array(dotsCount * 3);
-  const colors = new Float32Array(dotsCount * 3);
-
-  const colorOrange = new THREE.Color(0xff5e2b);
-  const colorAmber = new THREE.Color(0xffb703);
-  const colorSlate = new THREE.Color(0x475569);
-
-  for (let i = 0; i < dotsCount; i++) {
-    const phi = Math.acos(-1 + (2 * i) / dotsCount);
-    const theta = Math.sqrt(dotsCount * Math.PI) * phi;
-    const r = 5.33;
-
-    positions[i * 3] = r * Math.cos(theta) * Math.sin(phi);
-    positions[i * 3 + 1] = r * Math.sin(theta) * Math.sin(phi);
-    positions[i * 3 + 2] = r * Math.cos(phi);
-
-    const rand = Math.random();
-    const c = rand > 0.91 ? colorAmber : rand > 0.77 ? colorOrange : colorSlate;
-    colors[i * 3] = c.r;
-    colors[i * 3 + 1] = c.g;
-    colors[i * 3 + 2] = c.b;
-  }
-
-  dotsGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  dotsGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-
-  const dotsMat = new THREE.PointsMaterial({
-    size: 0.068,
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.9
-  });
-  const globePoints = new THREE.Points(dotsGeo, dotsMat);
-  earthGroup.add(globePoints);
-
-  const createOrbitRing = (radius, colorHex, tiltX, tiltY) => {
-    const ringGeo = new THREE.RingGeometry(radius - 0.02, radius + 0.02, 96);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: colorHex,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.35
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.x = tiltX;
-    ring.rotation.y = tiltY;
-    earthGroup.add(ring);
+  var state = {
+    manifest: null,
+    regions: [],
+    regionId: null,
+    rows: [],          // all calendar rows of the region, sorted
+    from: null,        // 'YYYY-MM'
+    to: null,
+    series: 'harmonized',
+    anomaliesOnly: false,
+    selected: null,    // 'YYYY-MM'
+    fireMonths: null,  // array of 'YYYY-MM' or null when unknown
+    fires: [],         // points currently on the map (after filters)
+    pointsFilter: 'all',
+    scale: null
   };
 
-  createOrbitRing(6.4, 0xff5e2b, Math.PI / 2.4, 0.3);
-  createOrbitRing(6.9, 0x38bdf8, Math.PI / 1.8, -0.4);
+  var map = null;
+  var firesLayer = null;
+  var canvasRenderer = null;
 
-  const satGroup = new THREE.Group();
-  const satBody = new THREE.Mesh(
-    new THREE.BoxGeometry(0.18, 0.18, 0.25),
-    new THREE.MeshBasicMaterial({ color: 0xffffff })
-  );
-  const satWing = new THREE.Mesh(
-    new THREE.BoxGeometry(0.8, 0.02, 0.18),
-    new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
-  );
-  satGroup.add(satBody, satWing);
-  earthGroup.add(satGroup);
+  /* ---------- small helpers ---------- */
 
-  let targetMouseX = 0;
-  let targetMouseY = 0;
-  window.addEventListener('mousemove', (e) => {
-    targetMouseX = (e.clientX / window.innerWidth - 0.5) * 0.5;
-    targetMouseY = (e.clientY / window.innerHeight - 0.5) * 0.5;
-  });
-
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    if (window.innerWidth < 768) {
-      earthGroup.position.set(0, 1.8, -5);
-    } else {
-      earthGroup.position.set(4.8, 0.6, -1.5);
-    }
-  });
-
-  if (window.innerWidth < 768) {
-    earthGroup.position.set(0, 1.8, -5);
+  function $(id) { return document.getElementById(id); }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function ym(y, m) { return y + '-' + pad2(m); }
+  function ymKey(row) { return ym(row.year, row.month); }
+  function isNum(v) { return typeof v === 'number' && isFinite(v); }
+  function fmtInt(v) { return isNum(v) ? Math.round(v).toLocaleString('en-US') : 'n/a'; }
+  function fmtNum(v, d) {
+    if (!isNum(v)) return 'n/a';
+    return v.toLocaleString('en-US', { maximumFractionDigits: d == null ? 2 : d, minimumFractionDigits: 0 });
+  }
+  function fmtZ(v) { return isNum(v) ? (v > 0 ? '+' : '') + v.toFixed(2) : 'n/a'; }
+  function monthLabel(key) {
+    if (!key) return '—';
+    var p = key.split('-');
+    return MONTHS_LONG[parseInt(p[1], 10) - 1] + ' ' + p[0];
+  }
+  // Months from manifest.preliminary_from on are near-real-time (NRT) data; default: 2026.
+  function prelimFrom() {
+    var pf = state.manifest && state.manifest.preliminary_from;
+    return /^\d{4}-\d{2}$/.test(String(pf)) ? pf : '2026-01';
+  }
+  function isPrelim(key) { return key >= prelimFrom(); }
+  function isPrelimYear(y) { return ym(y, 12) >= prelimFrom(); }
+  function setText(id, text) { var el = $(id); if (el) el.textContent = text; }
+  function regionName(id) {
+    for (var i = 0; i < state.regions.length; i++) if (state.regions[i].id === id) return state.regions[i].name;
+    return id || '—';
+  }
+  function regionById(id) {
+    for (var i = 0; i < state.regions.length; i++) if (state.regions[i].id === id) return state.regions[i];
+    return null;
+  }
+  function median(arr) {
+    if (!arr.length) return null;
+    var s = arr.slice().sort(function (a, b) { return a - b; });
+    var mid = Math.floor(s.length / 2);
+    return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  }
+  function seriesValue(row) {
+    if (!row) return null;
+    var v = row[SERIES[state.series].field];
+    return isNum(v) ? v : null;
+  }
+  function rowsInRange() {
+    var from = state.from, to = state.to;
+    return state.rows.filter(function (r) { var k = ymKey(r); return k >= from && k <= to; });
+  }
+  function findRow(key) {
+    for (var i = 0; i < state.rows.length; i++) if (ymKey(state.rows[i]) === key) return state.rows[i];
+    return null;
   }
 
-  let angle = 0;
-  function animate() {
-    requestAnimationFrame(animate);
-    angle += 0.006;
-
-    earthGroup.rotation.y += 0.0018;
-    earthGroup.rotation.x += (targetMouseY * 0.3 - earthGroup.rotation.x) * 0.05;
-    earthGroup.rotation.z += (-targetMouseX * 0.2 - earthGroup.rotation.z) * 0.05;
-
-    satGroup.position.x = Math.cos(angle * 2.2) * 6.9;
-    satGroup.position.z = Math.sin(angle * 2.2) * 6.9;
-    satGroup.position.y = Math.sin(angle * 2.2) * 2.4;
-    satGroup.lookAt(earthGroup.position);
-
-    renderer.render(scene, camera);
+  function csvCell(v) {
+    if (v === null || v === undefined) return '';
+    var s = String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
-
-  animate();
-}
-
-/* Ініціалізація ексклюзивних 3D-моделей для архітектури (Секція 4) */
-function initArchitecture3DModels() {
-  if (typeof THREE === 'undefined') return;
-
-  // 1. Супутник №1 (Орбітальний сканер)
-  initMini3DScene('model-sat-1', (scene) => {
-    const group = new THREE.Group();
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(1.2, 0.6, 0.6),
-      new THREE.MeshBasicMaterial({ color: 0xff5e2b, wireframe: true })
-    );
-    const dish = new THREE.Mesh(
-      new THREE.ConeGeometry(0.5, 0.6, 16),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true })
-    );
-    dish.position.set(0, -0.6, 0);
-    dish.rotation.x = Math.PI;
-    group.add(body, dish);
-    scene.add(group);
-    return group;
-  });
-
-  // 2. Супутник №2 (Високодетальна оптика)
-  initMini3DScene('model-sat-2', (scene) => {
-    const group = new THREE.Group();
-    const core = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.5, 0.5, 1.4, 16),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true })
-    );
-    const panelL = new THREE.Mesh(
-      new THREE.BoxGeometry(2.2, 0.05, 0.8),
-      new THREE.MeshBasicMaterial({ color: 0xff9e44, wireframe: true })
-    );
-    panelL.position.set(1.4, 0, 0);
-    const panelR = new THREE.Mesh(
-      new THREE.BoxGeometry(2.2, 0.05, 0.8),
-      new THREE.MeshBasicMaterial({ color: 0xff9e44, wireframe: true })
-    );
-    panelR.position.set(-1.4, 0, 0);
-    group.add(core, panelL, panelR);
-    scene.add(group);
-    return group;
-  });
-
-  // 3. Нейромережева матриця обробки
-  initMini3DScene('model-processing', (scene) => {
-    const group = new THREE.Group();
-    const ico = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(1.4, 1),
-      new THREE.MeshBasicMaterial({ color: 0xff5e2b, wireframe: true })
-    );
-    const innerCore = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.8, 0),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true })
-    );
-    group.add(ico, innerCore);
-    scene.add(group);
-    return group;
-  });
-
-  // 4. Планетарний глобус карти
-  initMini3DScene('model-globe-arch', (scene) => {
-    const group = new THREE.Group();
-    const globe = new THREE.Mesh(
-      new THREE.SphereGeometry(1.5, 24, 24),
-      new THREE.MeshBasicMaterial({ color: 0xff9e44, wireframe: true })
-    );
-    const orbit = new THREE.Mesh(
-      new THREE.RingGeometry(2.1, 2.15, 64),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
-    );
-    orbit.rotation.x = Math.PI / 2.5;
-    group.add(globe, orbit);
-    scene.add(group);
-    return group;
-  });
-}
-
-function initMini3DScene(containerId, setupFn) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-  camera.position.z = 4.5;
-
-  const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-  renderer.setSize(container.clientWidth, container.clientHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  container.appendChild(renderer.domElement);
-
-  const obj = setupFn(scene);
-
-  function animate() {
-    requestAnimationFrame(animate);
-    if (obj) {
-      obj.rotation.y += 0.007;
-      obj.rotation.x += 0.003;
-    }
-    renderer.render(scene, camera);
+  function downloadBlob(blob, filename) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
-  animate();
-
-  window.addEventListener('resize', () => {
-    if (!container) return;
-    camera.aspect = container.clientWidth / container.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth, container.clientHeight);
-  });
-}
-
-function initSpotlightCards() {
-  document.querySelectorAll('.spotlight-card').forEach(card => {
-    card.addEventListener('mousemove', (e) => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      card.style.setProperty('--mouse-x', `${x}px`);
-      card.style.setProperty('--mouse-y', `${y}px`);
+  function downloadCSV(columns, rows, filename) {
+    var lines = [columns.join(',')];
+    rows.forEach(function (r) {
+      lines.push(columns.map(function (c) { return csvCell(r[c]); }).join(','));
     });
-  });
-}
-
-function initMap() {
-  map = L.map('map', {
-    center: [20.0, 0.0],
-    zoom: 3,
-    minZoom: 2,
-    maxZoom: 18,
-    zoomControl: true
-  });
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap | NASA FIRMS Global',
-    maxZoom: 18,
-    className: 'dark-map-tiles'
-  }).addTo(map);
-
-  firesLayerGroup = L.layerGroup().addTo(map);
-}
-
-function bindEvents() {
-  document.getElementById('region-select').addEventListener('change', async (e) => {
-    state.region = e.target.value;
-    const regInfo = GLOBAL_REGIONS[state.region] || { center: [20.0, 0.0], zoom: 3 };
-    map.flyTo(regInfo.center, regInfo.zoom, { duration: 1.1 });
-    await refreshDashboard();
-  });
-
-  const updateYears = async () => {
-    let from = parseInt(document.getElementById('year-from').value, 10) || 2000;
-    let to = parseInt(document.getElementById('year-to').value, 10) || 2026;
-    from = Math.max(2000, Math.min(2026, from));
-    to = Math.max(from, Math.min(2026, to));
-    state.fromYear = from;
-    state.toYear = to;
-    await loadCalendar();
-  };
-  document.getElementById('year-from').addEventListener('change', updateYears);
-  document.getElementById('year-to').addEventListener('change', updateYears);
-
-  document.querySelectorAll('#sensor-toggle .seg-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      document.querySelectorAll('#sensor-toggle .seg-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.sensor = btn.dataset.sensor;
-      renderHeatmap();
-      await loadFires();
-    });
-  });
-
-  document.querySelectorAll('#map-mode-toggle .seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#map-mode-toggle .seg-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.mapMode = btn.dataset.mode;
-      renderFiresOnMap();
-    });
-  });
-
-  document.getElementById('toggle-anomalies-only').addEventListener('change', (e) => {
-    state.anomaliesOnly = e.target.checked;
-    renderHeatmap();
-  });
-
-  document.getElementById('btn-go-coord').addEventListener('click', () => {
-    const raw = document.getElementById('coord-input').value.trim();
-    const parts = raw.split(',').map(s => parseFloat(s.trim()));
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-      map.flyTo([parts[0], parts[1]], 8, { duration: 0.9 });
-    } else {
-      alert('Введіть координати у форматі: 50.45, 30.52');
-    }
-  });
-
-  document.getElementById('btn-export-csv').addEventListener('click', exportCurrentFiresToCSV);
-}
-
-function setApiStatus(isLive) {
-  state.isBackendLive = isLive;
-  const badge = document.getElementById('api-status-badge');
-  const textEl = badge.querySelector('.status-text');
-  if (isLive) {
-    badge.className = 'status-pill status-live';
-    textEl.textContent = 'API Підключено';
-  } else {
-    badge.className = 'status-pill status-demo';
-    textEl.textContent = 'Симуляція API';
-  }
-}
-
-async function loadRegions() {
-  let regions = Object.keys(GLOBAL_REGIONS);
-  try {
-    const res = await fetch(`${API_BASE}/regions`);
-    if (!res.ok) throw new Error('API offline');
-    const backendRegions = await res.json();
-    if (backendRegions && backendRegions.length) {
-      regions = backendRegions;
-    }
-    setApiStatus(true);
-  } catch {
-    setApiStatus(false);
+    downloadBlob(new Blob([lines.join('\n') + '\n'], { type: 'text/csv;charset=utf-8' }), filename);
   }
 
-  const select = document.getElementById('region-select');
-  select.innerHTML = '';
-  regions.forEach(reg => {
-    const opt = document.createElement('option');
-    opt.value = reg;
-    opt.textContent = reg;
-    if (reg === state.region) opt.selected = true;
-    select.appendChild(opt);
-  });
-}
+  /* ---------- colour scale (square-root bins, labelled with real numbers) ---------- */
 
-async function loadMetrics() {
-  let metrics;
-  try {
-    const res = await fetch(`${API_BASE}/metrics`);
-    if (!res.ok) throw new Error('API offline');
-    metrics = await res.json();
-  } catch {
-    metrics = {
-      mae: "18.5 точок/міс",
-      r2: "0.91",
-      notes: "Глобальна регресійна модель калібрування VIIRS та MODIS (2012–2021 рр.). Враховує екосистемні коефіцієнти для лісів, саван та сільгоспугідь."
+  function buildScale(values) {
+    var vals = values.filter(isNum);
+    if (!vals.length) return null;
+    var min = Math.min.apply(null, vals);
+    var max = Math.max.apply(null, vals);
+    var n = PALETTE.length;
+    var sMin = Math.sqrt(Math.max(0, min));
+    var sMax = Math.sqrt(Math.max(0, max));
+    var edges = [];
+    for (var i = 0; i <= n; i++) {
+      var s = sMin + (sMax - sMin) * (i / n);
+      edges.push(s * s);
+    }
+    return {
+      min: min, max: max, edges: edges,
+      color: function (v) {
+        if (!isNum(v)) return NODATA_COLOR;
+        if (max === min) return PALETTE[n - 1];
+        var t = (Math.sqrt(Math.max(0, v)) - sMin) / (sMax - sMin);
+        var idx = Math.min(n - 1, Math.max(0, Math.floor(t * n)));
+        return PALETTE[idx];
+      }
     };
   }
 
-  document.getElementById('metric-mae').textContent = metrics.mae;
-  document.getElementById('metric-r2').textContent = metrics.r2;
-  document.getElementById('metric-notes').textContent = metrics.notes;
-}
-
-async function refreshDashboard() {
-  await loadCalendar();
-  await loadFires();
-}
-
-async function loadCalendar() {
-  const encodedRegion = encodeURIComponent(state.region);
-  try {
-    const res = await fetch(`${API_BASE}/calendar?region=${encodedRegion}&from=${state.fromYear}&to=${state.toYear}`);
-    if (!res.ok) throw new Error('API offline');
-    state.calendarData = await res.json();
-    setApiStatus(true);
-  } catch {
-    state.calendarData = generateMockCalendar(state.region, state.fromYear, state.toYear);
-    setApiStatus(false);
+  function renderLegend(scale) {
+    var box = $('legend-scale');
+    box.textContent = '';
+    if (!scale) { box.textContent = 'No data'; return; }
+    // compact labels (973k, 1.6M) on every other step so large world numbers do not overlap
+    function short(v) {
+      if (!isNum(v)) return '';
+      var a = Math.abs(v);
+      if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
+      if (a >= 1e4) return Math.round(v / 1e3) + 'k';
+      return fmtInt(v);
+    }
+    PALETTE.forEach(function (c, i) {
+      var item = document.createElement('div');
+      item.className = 'legend-step';
+      var sw = document.createElement('span');
+      sw.className = 'legend-swatch';
+      sw.style.background = c;
+      var lab = document.createElement('span');
+      lab.className = 'legend-num';
+      lab.textContent = i % 2 === 0 ? short(scale.edges[i]) : '';
+      item.appendChild(sw);
+      item.appendChild(lab);
+      item.title = fmtInt(scale.edges[i]) + ' – ' + fmtInt(scale.edges[i + 1]) + ' hotspots';
+      box.appendChild(item);
+    });
+    var end = document.createElement('div');
+    end.className = 'legend-step legend-end';
+    var lab2 = document.createElement('span');
+    lab2.className = 'legend-num';
+    lab2.textContent = short(scale.max);
+    end.appendChild(lab2);
+    box.appendChild(end);
   }
 
-  renderHeatmap();
-  updateInspectorAndComparison();
-}
+  /* ---------- startup ---------- */
 
-async function loadFires() {
-  const encodedRegion = encodeURIComponent(state.region);
-  try {
-    const res = await fetch(`${API_BASE}/fires?region=${encodedRegion}&month=${state.selectedMonth}&sensor=${state.sensor}`);
-    if (!res.ok) throw new Error('API offline');
-    state.currentFires = await res.json();
-  } catch {
-    state.currentFires = generateMockFires(state.region, state.selectedMonth, state.sensor);
-  }
-
-  renderFiresOnMap();
-  updateInspectorAndComparison();
-}
-
-function renderHeatmap() {
-  const container = document.getElementById('heatmap-grid');
-  container.innerHTML = '';
-
-  const corner = document.createElement('div');
-  corner.className = 'hm-header-cell';
-  corner.textContent = 'Рік';
-  container.appendChild(corner);
-
-  MONTHS_UA.forEach(m => {
-    const th = document.createElement('div');
-    th.className = 'hm-header-cell';
-    th.textContent = m;
-    container.appendChild(th);
+  document.addEventListener('DOMContentLoaded', function () {
+    safe(initBackground);
+    safe(initSpotlightCards);
+    safe(initScrollSpy);
+    safe(initProblemFigure);
+    safe(initMap);
+    bindEvents();
+    loadAll();
   });
 
-  const getVal = (row) => {
-    if (state.sensor === 'MODIS') return row.modis_count ?? 0;
-    if (state.sensor === 'VIIRS') return row.viirs_count ?? 0;
-    return row.harmonized_count ?? 0;
-  };
+  function safe(fn) {
+    try { fn(); } catch (e) { if (window.console) console.warn('[P1t0n] optional feature failed:', e); }
+  }
 
-  const maxVal = Math.max(1, ...state.calendarData.map(getVal));
-  const tooltip = document.getElementById('heatmap-tooltip');
+  function loadAll() {
+    if (!API) {
+      setStatus('error', 'Data module missing');
+      showCalendarEmpty('Data module (api.js) could not be loaded.');
+      return;
+    }
+    Promise.all([API.getManifest(), API.getRegions(), API.getMetrics(), API.getCoefficients()])
+      .then(function (res) {
+        var manifest = res[0], regions = res[1];
+        state.manifest = manifest;
+        applyManifest(manifest);
+        renderMetrics(res[2]);
+        renderCoefficients(res[3]);
+        setupRegions(regions);
+        return loadCalendar();
+      })
+      .catch(function (e) {
+        if (window.console) console.error(e);
+        showCalendarEmpty('No data for this selection.');
+      });
+  }
 
-  for (let y = state.toYear; y >= state.fromYear; y--) {
-    const yearLabel = document.createElement('div');
-    yearLabel.className = 'hm-year-label';
-    yearLabel.textContent = y;
-    container.appendChild(yearLabel);
-
-    for (let m = 1; m <= 12; m++) {
-      const row = state.calendarData.find(d => d.year === y && d.month === m);
-      const cell = document.createElement('div');
-      cell.className = 'hm-cell';
-
-      const monthStr = `${y}-${String(m).padStart(2, '0')}`;
-      if (monthStr === state.selectedMonth) cell.classList.add('selected');
-
-      if (!row) {
-        cell.style.background = 'rgba(255,255,255,0.02)';
-      } else {
-        const val = getVal(row);
-        const ratio = Math.min(1, val / maxVal);
-        cell.style.background = getFireColor(ratio);
-
-        const isAnomaly = (row.anomaly ?? 0) > 2.0;
-        if (isAnomaly) cell.classList.add('anomaly');
-        if (state.anomaliesOnly && !isAnomaly) cell.classList.add('dimmed');
-
-        cell.addEventListener('mousemove', (e) => {
-          tooltip.classList.remove('hidden');
-          tooltip.style.left = `${e.clientX + 14}px`;
-          tooltip.style.top = `${e.clientY + 14}px`;
-          tooltip.innerHTML = `
-            <strong>${MONTHS_UA[m - 1]} ${y}</strong> (${state.region})<br/>
-            Harmonized: <b>${row.harmonized_count}</b><br/>
-            MODIS: ${row.modis_count ?? 'н/д'} | VIIRS: ${row.viirs_count ?? 'н/д'}<br/>
-            Z-score: <span style="color:${isAnomaly ? '#fde047' : '#9ca3af'}">${(row.anomaly ?? 0).toFixed(2)}</span>
-          `;
-        });
-
-        cell.addEventListener('mouseleave', () => {
-          tooltip.classList.add('hidden');
-        });
-
-        cell.addEventListener('click', async () => {
-          state.selectedMonth = monthStr;
-          renderHeatmap();
-          await loadFires();
-        });
-      }
-
-      container.appendChild(cell);
+  function applyManifest(m) {
+    if (!m) {
+      setStatus('error', 'Data index missing');
+      return;
+    }
+    if (m.fake === true) {
+      $('demo-banner').hidden = false;
+      setStatus('demo', 'Demo data');
+    } else {
+      var d = m.generated_at ? String(m.generated_at).slice(0, 10) : '';
+      setStatus('live', 'Pipeline data' + (d ? ' · ' + d : ''));
+    }
+    if (Array.isArray(m.fire_months)) {
+      state.fireMonths = m.fire_months.filter(function (s) { return /^\d{4}-\d{2}$/.test(s); }).sort();
+    } else if (Array.isArray(m.files)) {
+      state.fireMonths = m.files.map(function (f) {
+        var mt = /^fires\/UA\/(\d{4}-\d{2})\.json$/.exec(f);
+        return mt ? mt[1] : null;
+      }).filter(Boolean).sort();
     }
   }
-}
 
-function getFireColor(ratio) {
-  if (ratio <= 0.02) return '#16181f';
-  if (ratio < 0.25) return '#431407';
-  if (ratio < 0.50) return '#9a3412';
-  if (ratio < 0.75) return '#ea580c';
-  if (ratio < 0.90) return '#f97316';
-  return '#fde047';
-}
-
-function renderFiresOnMap() {
-  firesLayerGroup.clearLayers();
-
-  const regInfo = GLOBAL_REGIONS[state.region] || { center: [50.45, 30.52] };
-  const baseLat = regInfo.center[0];
-  const baseLon = regInfo.center[1];
-
-  state.currentFires.forEach(pt => {
-    const frp = pt.frp || 20;
-    const color = frp > 80 ? '#ef4444' : frp >= 25 ? '#f97316' : '#fbbf24';
-    const radius = state.mapMode === 'clusters'
-      ? Math.min(26, Math.max(10, frp / 4))
-      : Math.min(10, Math.max(4, frp / 12));
-
-    const lat = pt.lat ?? (baseLat + (Math.random() - 0.5) * 6);
-    const lon = pt.lon ?? (baseLon + (Math.random() - 0.5) * 8);
-
-    const marker = L.circleMarker([lat, lon], {
-      radius,
-      fillColor: color,
-      color: state.mapMode === 'clusters' ? 'transparent' : '#fff',
-      weight: 0.7,
-      opacity: 0.9,
-      fillOpacity: state.mapMode === 'clusters' ? 0.35 : 0.85
-    });
-
-    marker.bindPopup(`
-      <div style="font-family: Inter, sans-serif; color: #111;">
-        <strong>Глобальне вогнище (${pt.sensor})</strong><br/>
-        Регіон: ${state.region}<br/>
-        Дата: ${pt.date}<br/>
-        Потужність (FRP): <b>${frp.toFixed(1)} МВт</b><br/>
-        Координати: ${lat.toFixed(4)}, ${lon.toFixed(4)}
-      </div>
-    `);
-
-    marker.addTo(firesLayerGroup);
-  });
-}
-
-function updateInspectorAndComparison() {
-  const [yStr, mStr] = state.selectedMonth.split('-');
-  const y = parseInt(yStr, 10);
-  const m = parseInt(mStr, 10);
-
-  const row = state.calendarData.find(d => d.year === y && d.month === m) || {
-    modis_count: 140,
-    viirs_count: 380,
-    harmonized_count: 365,
-    anomaly: 1.5
-  };
-
-  document.getElementById('kpi-period').textContent = state.selectedMonth;
-  document.getElementById('kpi-region-name').textContent = state.region;
-  document.getElementById('kpi-hotspots').textContent = row.harmonized_count;
-  
-  const zVal = (row.anomaly ?? 0).toFixed(2);
-  const kpiAnom = document.getElementById('kpi-anomaly');
-  kpiAnom.textContent = `${zVal > 0 ? '+' : ''}${zVal}σ`;
-  kpiAnom.style.color = row.anomaly > 2.0 ? '#fde047' : '#f8fafc';
-  document.getElementById('kpi-anomaly-desc').textContent =
-    row.anomaly > 2.0 ? 'Критична аномалія регіону' : 'У межах сезонної норми';
-
-  document.getElementById('comp-month-label').textContent = state.selectedMonth;
-  const modis = row.modis_count ?? 0;
-  const viirs = row.viirs_count ?? 0;
-  const harm = row.harmonized_count ?? 0;
-  const maxBar = Math.max(1, modis, viirs, harm);
-
-  document.getElementById('bar-modis').style.width = `${(modis / maxBar) * 100}%`;
-  document.getElementById('val-modis').textContent = modis;
-
-  document.getElementById('bar-viirs').style.width = `${(viirs / maxBar) * 100}%`;
-  document.getElementById('val-viirs').textContent = viirs;
-
-  document.getElementById('bar-harm').style.width = `${(harm / maxBar) * 100}%`;
-  document.getElementById('val-harm').textContent = harm;
-
-  document.getElementById('insp-date').textContent = `${MONTHS_UA[m - 1]} ${y} (${state.region})`;
-  document.getElementById('insp-summary').textContent = row.anomaly > 2.0
-    ? `Зафіксовано значну глобальну аномалію (Z = ${zVal}). Кількість гармонізованих точок (${harm}) значно вища за середню норму.`
-    : `Пожежна активність (${harm} гармонізованих точок) у регіоні стабільна (Z = ${zVal}).`;
-}
-
-function exportCurrentFiresToCSV() {
-  if (!state.currentFires.length) {
-    alert('Немає даних для експорту за обраний період.');
-    return;
+  function setStatus(kind, text) {
+    var badge = $('data-status-badge');
+    badge.className = 'status-pill status-' + kind;
+    badge.querySelector('.status-text').textContent = text;
   }
 
-  const headers = ['region', 'month', 'date', 'lat', 'lon', 'frp', 'sensor'];
-  const rows = state.currentFires.map(f => [
-    `"${state.region}"`,
-    state.selectedMonth,
-    f.date,
-    f.lat || 0,
-    f.lon || 0,
-    f.frp,
-    f.sensor
-  ].join(','));
+  /* ---------- regions ---------- */
 
-  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `P1t0n_global_fires_${state.region.replace(/[^a-zA-Z0-9]/g, '_')}_${state.selectedMonth}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
+  function setupRegions(regions) {
+    var select = $('region-select');
+    select.textContent = '';
+    state.regions = Array.isArray(regions) ? regions.filter(function (r) { return r && r.id; }) : [];
+    if (!state.regions.length) {
+      var o = document.createElement('option');
+      o.value = '';
+      o.textContent = 'No regions available';
+      select.appendChild(o);
+      select.disabled = true;
+      return;
+    }
+    state.regions.forEach(function (r) {
+      var opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = r.name || r.id;
+      select.appendChild(opt);
+    });
+    var hasUKR = state.regions.some(function (r) { return r.id === 'UKR'; });
+    state.regionId = hasUKR ? 'UKR' : state.regions[0].id;
+    select.value = state.regionId;
+  }
 
-function generateMockCalendar(region, fromYear, toYear) {
-  const data = [];
-  const seedOffset = region.length * 11;
+  /* ---------- calendar ---------- */
 
-  for (let y = fromYear; y <= toYear; y++) {
-    for (let m = 1; m <= 12; m++) {
-      const peakSeason = (m >= 7 && m <= 9) ? 220 : 60;
-      const pseudoRand = Math.abs(Math.sin(y * 17 + m * 5 + seedOffset));
-      const baseModis = Math.round((peakSeason + 40) * (0.5 + pseudoRand));
-      
-      const viirs = y >= 2012 ? Math.round(baseModis * (2.6 + pseudoRand * 0.3)) : null;
-      const harmonized = y >= 2012 ? viirs : Math.round(baseModis * 2.75);
-      
-      let anomaly = (pseudoRand - 0.45) * 3.4;
-      if ((y === 2023 && m === 8) || (y === 2019 && m === 9) || (y === 2024 && m === 7)) {
-        anomaly = 2.75;
+  function loadCalendar() {
+    if (!state.regionId) { showCalendarEmpty('No data for this selection.'); return Promise.resolve(); }
+    var id = state.regionId;
+    return API.getCalendar(id).then(function (rows) {
+      if (id !== state.regionId) return;
+      var clean = Array.isArray(rows) ? rows.filter(function (r) {
+        return r && isNum(r.year) && isNum(r.month) && r.month >= 1 && r.month <= 12;
+      }) : [];
+      clean.sort(function (a, b) { return a.year - b.year || a.month - b.month; });
+      state.rows = clean;
+
+      if (!clean.length) {
+        state.from = state.to = state.selected = null;
+        showCalendarEmpty('No data for this selection.');
+        updateReadout();
+        loadFires();
+        return;
       }
+      var first = ymKey(clean[0]), last = ymKey(clean[clean.length - 1]);
+      var fromIn = $('month-from'), toIn = $('month-to');
+      [fromIn, toIn].forEach(function (inp) { inp.min = first; inp.max = last; });
+      // Keep the user's range if it still fits; otherwise use the full range.
+      if (!state.from || state.from < first || state.from > last) state.from = first;
+      if (!state.to || state.to > last || state.to < first) state.to = last;
+      if (state.from > state.to) { state.from = first; state.to = last; }
+      fromIn.value = state.from;
+      toIn.value = state.to;
+      if (!state.selected || state.selected < state.from || state.selected > state.to || !findRow(state.selected)) {
+        var inRange = rowsInRange();
+        state.selected = inRange.length ? ymKey(inRange[inRange.length - 1]) : null;
+      }
+      renderCalendar();
+      loadFires();
+    });
+  }
 
-      data.push({
-        region,
-        year: y,
-        month: m,
-        modis_count: baseModis,
-        viirs_count: viirs,
-        harmonized_count: harmonized,
-        anomaly: Number(anomaly.toFixed(2))
+  function showCalendarEmpty(msg) {
+    $('heatmap-grid').textContent = '';
+    $('heatmap-grid').hidden = true;
+    var e = $('heatmap-empty');
+    e.textContent = msg || 'No data for this selection.';
+    e.hidden = false;
+    renderLegend(null);
+    state.scale = null;
+  }
+
+  function seriesMedians(rowsAll) {
+    // Harmonized: the contract's median_count. Raw series: median of that series over all years of the region.
+    var med = [];
+    for (var m = 1; m <= 12; m++) {
+      var monthRows = rowsAll.filter(function (r) { return r.month === m; });
+      if (state.series === 'harmonized') {
+        var mc = null;
+        for (var i = 0; i < monthRows.length; i++) if (isNum(monthRows[i].median_count)) { mc = monthRows[i].median_count; break; }
+        med.push(mc);
+      } else {
+        med.push(median(monthRows.map(seriesValue).filter(isNum)));
+      }
+    }
+    return med;
+  }
+
+  function renderCalendar() {
+    var grid = $('heatmap-grid');
+    hideTooltip();
+    grid.textContent = '';
+
+    var shown = rowsInRange();
+    var values = shown.map(seriesValue);
+    var hasValues = values.some(isNum);
+    setText('heatmap-title', regionName(state.regionId) + ' — ' + SERIES[state.series].short);
+    setText('legend-title', SERIES[state.series].label + ' per month');
+
+    if (!shown.length || !hasValues) {
+      showCalendarEmpty('No data for this selection.');
+      updateReadout();
+      return;
+    }
+    grid.hidden = false;
+    $('heatmap-empty').hidden = true;
+
+    var medians = seriesMedians(state.rows);
+    var scale = buildScale(values.concat(medians));
+    state.scale = scale;
+    renderLegend(scale);
+
+    var corner = document.createElement('div');
+    corner.className = 'hm-header-cell';
+    corner.textContent = 'Year';
+    grid.appendChild(corner);
+    MONTHS.forEach(function (m) {
+      var th = document.createElement('div');
+      th.className = 'hm-header-cell';
+      th.textContent = m;
+      grid.appendChild(th);
+    });
+
+    var fy = parseInt(state.from.slice(0, 4), 10);
+    var ty = parseInt(state.to.slice(0, 4), 10);
+    for (var y = ty; y >= fy; y--) {
+      var yl = document.createElement('div');
+      yl.className = 'hm-year-label';
+      yl.textContent = String(y) + (isPrelimYear(y) ? '*' : '');
+      if (isPrelimYear(y)) yl.title = 'Preliminary near-real-time data from ' + prelimFrom();
+      grid.appendChild(yl);
+
+      for (var m = 1; m <= 12; m++) {
+        var key = ym(y, m);
+        var cell = document.createElement('div');
+        cell.className = 'hm-cell';
+        var inRange = key >= state.from && key <= state.to;
+        var row = inRange ? findRow(key) : null;
+        var v = seriesValue(row);
+
+        if (!row || !isNum(v)) {
+          cell.classList.add('nodata');
+          cell.style.background = NODATA_COLOR;
+          if (!inRange) cell.classList.add('outside');
+        } else {
+          cell.style.background = scale.color(v);
+          cell.tabIndex = 0;
+          cell.setAttribute('role', 'button');
+          cell.setAttribute('data-key', key);
+          cell.setAttribute('aria-label', monthLabel(key) + ': ' + fmtInt(v));
+          var z = row.anomaly;
+          var isAnom = isNum(z) && Math.abs(z) > ANOMALY_Z;
+          if (isAnom) cell.classList.add(z > 0 ? 'anomaly-high' : 'anomaly-low');
+          if (state.anomaliesOnly && !isAnom) cell.classList.add('dimmed');
+          if (key === state.selected) cell.classList.add('selected');
+          attachCellEvents(cell, key, row);
+        }
+        grid.appendChild(cell);
+      }
+    }
+
+    // Median row
+    var ml = document.createElement('div');
+    ml.className = 'hm-year-label hm-median-label';
+    ml.textContent = 'Median';
+    ml.title = state.series === 'harmonized'
+      ? 'Median of the harmonized count for each month over all years'
+      : 'Median of this raw series for each month over all years with data';
+    grid.appendChild(ml);
+    medians.forEach(function (mv, i) {
+      var c = document.createElement('div');
+      c.className = 'hm-cell hm-median' + (isNum(mv) ? '' : ' nodata');
+      c.style.background = isNum(mv) ? scale.color(mv) : NODATA_COLOR;
+      c.title = MONTHS_LONG[i] + ' median: ' + fmtInt(mv);
+      grid.appendChild(c);
+    });
+
+    updateReadout();
+  }
+
+  function tooltipContent(key, row) {
+    var frag = document.createDocumentFragment();
+    var title = document.createElement('strong');
+    title.textContent = monthLabel(key) + ' · ' + regionName(state.regionId);
+    frag.appendChild(title);
+    var lines = [
+      ['Harmonized', fmtInt(row.harmonized_count)],
+      ['MODIS', fmtInt(row.modis_count)],
+      ['VIIRS (SNPP)', fmtInt(row.viirs_count)],
+      ['Median', fmtInt(row.median_count)],
+      ['z', fmtZ(row.anomaly)]
+    ];
+    lines.forEach(function (l) {
+      var d = document.createElement('div');
+      d.textContent = l[0] + ': ' + l[1];
+      frag.appendChild(d);
+    });
+    if (isPrelim(key)) {
+      var p = document.createElement('div');
+      p.className = 'tt-note';
+      p.textContent = 'Preliminary (near-real-time) data';
+      frag.appendChild(p);
+    }
+    return frag;
+  }
+
+  function showTooltip(x, y, key, row) {
+    var tt = $('heatmap-tooltip');
+    tt.textContent = '';
+    tt.appendChild(tooltipContent(key, row));
+    tt.classList.remove('hidden');
+    var w = tt.offsetWidth, h = tt.offsetHeight;
+    var left = Math.min(x + 14, window.innerWidth - w - 8);
+    var top = y + 14 + h > window.innerHeight ? y - h - 10 : y + 14;
+    tt.style.left = Math.max(8, left) + 'px';
+    tt.style.top = Math.max(8, top) + 'px';
+  }
+  function hideTooltip() { var tt = $('heatmap-tooltip'); if (tt) tt.classList.add('hidden'); }
+
+  function attachCellEvents(cell, key, row) {
+    cell.addEventListener('mousemove', function (e) { showTooltip(e.clientX, e.clientY, key, row); });
+    cell.addEventListener('mouseleave', hideTooltip);
+    function choose(e) {
+      e.stopPropagation();
+      selectMonth(key);
+      // Tap support: show the tooltip next to the tapped cell.
+      var target = $('heatmap-grid').querySelector('.hm-cell.selected') || cell;
+      var r = target.getBoundingClientRect();
+      showTooltip(r.right, r.top, key, row);
+    }
+    cell.addEventListener('click', choose);
+    cell.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(e); }
+    });
+  }
+
+  function selectMonth(key) {
+    state.selected = key;
+    var cells = $('heatmap-grid').querySelectorAll('.hm-cell.selected');
+    for (var i = 0; i < cells.length; i++) cells[i].classList.remove('selected');
+    var sel = $('heatmap-grid').querySelector('.hm-cell[data-key="' + key + '"]');
+    if (sel) sel.classList.add('selected');
+    updateReadout();
+    loadFires();
+  }
+
+  function updateReadout() {
+    var key = state.selected;
+    var row = key ? findRow(key) : null;
+    setText('kpi-region-name', regionName(state.regionId));
+    setText('kpi-value-label', SERIES[state.series].label);
+
+    if (!row) {
+      ['kpi-period', 'kpi-value', 'kpi-anomaly', 'ro-value', 'ro-median', 'ro-z', 'ro-range', 'ro-noise', 'val-modis', 'val-viirs', 'val-harm']
+        .forEach(function (id) { setText(id, '—'); });
+      setText('insp-date', regionName(state.regionId));
+      setText('insp-summary', state.rows.length ? 'Select a cell in the calendar.' : 'No data for this selection.');
+      setText('kpi-anomaly-desc', 'vs median of the month');
+      ['bar-modis', 'bar-viirs', 'bar-harm'].forEach(function (id) { $(id).style.width = '0'; });
+      return;
+    }
+
+    var v = seriesValue(row);
+    var medians = seriesMedians(state.rows);
+    var med = medians[row.month - 1];
+    var z = row.anomaly;
+
+    setText('kpi-period', key);
+    setText('kpi-value', fmtInt(v));
+    setText('kpi-value-sub', isPrelim(key) ? 'preliminary (near-real-time)' : 'hotspots in the month');
+    var kz = $('kpi-anomaly');
+    kz.textContent = isNum(z) ? fmtZ(z) + 'σ' : 'n/a';
+    kz.classList.toggle('is-anomaly', isNum(z) && Math.abs(z) > ANOMALY_Z);
+    setText('kpi-anomaly-desc', !isNum(z) ? 'not available'
+      : z > ANOMALY_Z ? 'well above the usual level'
+      : z < -ANOMALY_Z ? 'well below the usual level'
+      : 'within the usual range');
+
+    setText('insp-date', monthLabel(key) + ' · ' + regionName(state.regionId) + ' · ' + SERIES[state.series].short);
+    setText('ro-value', fmtInt(v));
+    setText('ro-median', fmtInt(med));
+    setText('ro-z', isNum(z) ? fmtZ(z) + ' (harmonized series)' : 'n/a');
+    if (isNum(row.p25_count) && isNum(row.p75_count)) {
+      setText('ro-range', fmtInt(row.p25_count) + ' – ' + fmtInt(row.p75_count));
+    } else {
+      setText('ro-range', 'not available in this data');
+    }
+    setText('ro-noise', isNum(v) && v > 0 ? '± ' + fmtNum(100 / Math.sqrt(v), 1) + ' %' : 'n/a');
+
+    var summary;
+    if (!isNum(v)) summary = 'This series has no value for the selected month (raw VIIRS starts in 2012).';
+    else if (!isNum(med)) summary = 'No median available for this month.';
+    else {
+      var ratio = med > 0 ? v / med : null;
+      summary = fmtInt(v) + ' hotspots vs a median of ' + fmtInt(med) +
+        (ratio !== null ? ' (' + fmtNum(ratio, 2) + '× the median).' : '.');
+    }
+    setText('insp-summary', summary);
+
+    var modis = row.modis_count, viirs = row.viirs_count, harm = row.harmonized_count;
+    var maxBar = Math.max(1, isNum(modis) ? modis : 0, isNum(viirs) ? viirs : 0, isNum(harm) ? harm : 0);
+    [['modis', modis], ['viirs', viirs], ['harm', harm]].forEach(function (p) {
+      $('bar-' + p[0]).style.width = (isNum(p[1]) ? (p[1] / maxBar) * 100 : 0) + '%';
+      setText('val-' + p[0], fmtInt(p[1]));
+    });
+  }
+
+  /* ---------- downloads: calendar ---------- */
+
+  function exportCalendarCSV() {
+    var rows = rowsInRange();
+    if (!rows.length) { alert('No data for this selection.'); return; }
+    var cols = CAL_COLUMNS.filter(function (c) {
+      if (c !== 'p25_count' && c !== 'p75_count') return true;
+      return rows.some(function (r) { return r[c] !== undefined; });
+    });
+    downloadCSV(cols, rows, 'P1t0n_calendar_' + state.regionId + '_' + state.from + '_' + state.to + '.csv');
+  }
+
+  function exportCalendarPNG() {
+    var rows = rowsInRange();
+    var scale = state.scale;
+    if (!rows.length || !scale) { alert('No data for this selection.'); return; }
+
+    var fy = parseInt(state.from.slice(0, 4), 10);
+    var ty = parseInt(state.to.slice(0, 4), 10);
+    var nYears = ty - fy + 1;
+    var cw = 44, ch = 22, gap = 2, left = 70, top = 96;
+    var gridW = 12 * (cw + gap);
+    var width = left + gridW + 30;
+    var height = top + (nYears + 1) * (ch + gap) + 24 + 120;
+    var dpr = 2;
+    var canvas = document.createElement('canvas');
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    ctx.fillStyle = '#06070a';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '600 18px Inter, Arial, sans-serif';
+    ctx.fillText('Harmonized Fire Calendar — ' + regionName(state.regionId), 20, 30);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '13px Inter, Arial, sans-serif';
+    ctx.fillText(SERIES[state.series].short + ' · ' + state.from + ' to ' + state.to + ' · hotspots per month', 20, 52);
+    if (state.manifest && state.manifest.fake === true) {
+      ctx.fillStyle = '#fca50a';
+      ctx.fillText('DEMO DATA — synthetic numbers', 20, 72);
+    }
+
+    ctx.font = '11px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#94a3b8';
+    MONTHS.forEach(function (m, i) { ctx.fillText(m, left + i * (cw + gap) + cw / 2, top - 8); });
+
+    var medians = seriesMedians(state.rows);
+    var yPos = top;
+    for (var y = ty; y >= fy; y--) {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(String(y) + (isPrelimYear(y) ? '*' : ''), left - 8, yPos + ch / 2 + 4);
+      for (var m = 1; m <= 12; m++) {
+        var key = ym(y, m);
+        var x = left + (m - 1) * (cw + gap);
+        var row = (key >= state.from && key <= state.to) ? findRow(key) : null;
+        var v = seriesValue(row);
+        ctx.fillStyle = isNum(v) ? scale.color(v) : '#14161c';
+        ctx.fillRect(x, yPos, cw, ch);
+        if (row && isNum(v) && isNum(row.anomaly) && Math.abs(row.anomaly) > ANOMALY_Z) {
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2;
+          if (row.anomaly < 0) ctx.setLineDash([3, 2]);
+          ctx.strokeRect(x + 1, yPos + 1, cw - 2, ch - 2);
+          ctx.setLineDash([]);
+        }
+      }
+      yPos += ch + gap;
+    }
+    yPos += 6;
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillText('Median', left - 8, yPos + ch / 2 + 4);
+    medians.forEach(function (mv, i) {
+      ctx.fillStyle = isNum(mv) ? scale.color(mv) : '#14161c';
+      ctx.fillRect(left + i * (cw + gap), yPos, cw, ch);
+    });
+    yPos += ch + 30;
+
+    // Numeric legend
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(SERIES[state.series].label + ' per month', left, yPos - 8);
+    var sw = gridW / PALETTE.length;
+    PALETTE.forEach(function (c, i) {
+      ctx.fillStyle = c;
+      ctx.fillRect(left + i * sw, yPos, sw - 1, 12);
+    });
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    for (var i = 0; i <= PALETTE.length; i += 3) {
+      ctx.fillText(fmtInt(scale.edges[i]), left + i * sw, yPos + 26);
+    }
+    yPos += 46;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '11px Inter, Arial, sans-serif';
+    ctx.fillText('Blue outline: |z| > 2 (dashed = below median). * preliminary from ' + prelimFrom() + '. Source: NASA FIRMS. Team P1t0n.', 20, yPos);
+
+    canvas.toBlob(function (blob) {
+      if (blob) downloadBlob(blob, 'P1t0n_calendar_' + state.regionId + '_' + state.series + '_' + state.from + '_' + state.to + '.png');
+    }, 'image/png');
+  }
+
+  /* ---------- metrics & coefficients ---------- */
+
+  function renderMetrics(metrics) {
+    var rows = document.querySelectorAll('#metrics-table tbody tr');
+    for (var i = 0; i < rows.length; i++) {
+      var key = rows[i].getAttribute('data-key');
+      var block = metrics && metrics[key] && typeof metrics[key] === 'object' ? metrics[key] : null;
+      var cells = rows[i].querySelectorAll('td');
+      if (!block) {
+        // One honest message instead of four invented numbers.
+        for (var k = cells.length - 1; k > 0; k--) rows[i].removeChild(cells[k]);
+        cells[0].colSpan = 4;
+        cells[0].textContent = 'pending validation';
+        cells[0].className = 'pending pending-row';
+        continue;
+      }
+      for (var j = 0; j < cells.length; j++) {
+        var mk = cells[j].getAttribute('data-m');
+        var val = block ? block[mk] : null;
+        if (!block) {
+          cells[j].textContent = 'pending validation';
+          cells[j].className = 'pending';
+        } else if (isNum(val)) {
+          // mae: hotspots per month; *_pct: percent; r2: unitless
+          cells[j].textContent = /_pct$/.test(mk)
+            ? (mk === 'bias_pct' && val > 0 ? '+' : '') + val.toFixed(1) + ' %'
+            : mk === 'r2' ? val.toFixed(2) : Math.round(val).toLocaleString('en-US');
+          cells[j].className = '';
+        } else {
+          cells[j].textContent = 'n/a';
+          cells[j].className = 'pending';
+        }
+      }
+    }
+    var raw = [];
+    ['ukraine', 'world'].forEach(function (k) {
+      var b = metrics && metrics[k] && metrics[k].raw_modis;
+      if (b && isNum(b.r2) && isNum(b.bias_pct)) {
+        raw.push((k === 'ukraine' ? 'Ukraine' : 'World') + ': R² ' + b.r2.toFixed(2) + ', bias ' + b.bias_pct.toFixed(1) + ' %');
+      }
+    });
+    setText('metrics-raw', raw.length ? 'For comparison, raw MODIS without harmonization — ' + raw.join('; ') + '.' : '');
+    setText('metrics-reference', metrics && metrics.viirs_reference ? 'VIIRS reference: ' + metrics.viirs_reference : '');
+    var notes = metrics && metrics.notes ? metrics.notes : 'Validation results are not published yet.';
+    if (metrics && metrics.fake === true) notes = 'Demo values, not real validation. ' + notes;
+    setText('metrics-notes', notes);
+  }
+
+  function renderCoefficients(coefs) {
+    var table = $('coef-table');
+    var missing = $('coef-missing');
+    var list = Array.isArray(coefs) ? coefs.filter(function (c) { return c && isNum(c.month); }) : [];
+    if (!list.length) {
+      table.hidden = true;
+      missing.hidden = false;
+      return;
+    }
+    list.sort(function (a, b) { return a.month - b.month; });
+    var tbody = table.querySelector('tbody');
+    tbody.textContent = '';
+    list.forEach(function (c) {
+      var tr = document.createElement('tr');
+      var th = document.createElement('th');
+      th.scope = 'row';
+      th.textContent = MONTHS_LONG[c.month - 1] || String(c.month);
+      var a = document.createElement('td');
+      a.textContent = isNum(c.k_aqua) ? c.k_aqua.toFixed(2) : 'n/a';
+      var t = document.createElement('td');
+      t.textContent = isNum(c.k_terra) ? c.k_terra.toFixed(2) : 'n/a';
+      tr.appendChild(th); tr.appendChild(a); tr.appendChild(t);
+      tbody.appendChild(tr);
+    });
+    table.hidden = false;
+    missing.hidden = true;
+  }
+
+  /* ---------- map ---------- */
+
+  function initMap() {
+    if (typeof L === 'undefined') {
+      $('map-block').hidden = true;
+      $('map-unavailable').hidden = false;
+      return;
+    }
+    map = L.map('map', { center: [48.4, 31.2], zoom: 5, minZoom: 2, maxZoom: 14, scrollWheelZoom: false });
+    map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
+    canvasRenderer = L.canvas({ padding: 0.5 });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+      className: 'dark-map-tiles'
+    }).addTo(map);
+    firesLayer = L.layerGroup().addTo(map);
+    var t = null;
+    window.addEventListener('resize', function () {
+      clearTimeout(t);
+      t = setTimeout(function () { map.invalidateSize(); fitRegion(); }, 200);
+    });
+  }
+
+  function fitRegion() {
+    if (!map) return;
+    map.invalidateSize();
+    var size = map.getSize();
+    if (!size.x || !size.y) return;
+    var r = regionById(state.regionId);
+    var isUA = state.regionId && state.regionId.indexOf('UKR') === 0;
+    var bbox = isUA && r && Array.isArray(r.bbox) && r.bbox.length === 4 ? r.bbox : (regionById('UKR') || {}).bbox;
+    if (Array.isArray(bbox) && bbox.length === 4) {
+      map.fitBounds([[bbox[1], bbox[0]], [bbox[3], bbox[2]]], { padding: [10, 10], animate: !reduceMotion });
+    }
+  }
+
+  function loadFires() {
+    state.fires = [];
+    if (firesLayer) firesLayer.clearLayers();
+    var key = state.selected;
+    var isUA = state.regionId && state.regionId.indexOf('UKR') === 0;
+    var available = state.fireMonths && state.fireMonths.length ? state.fireMonths.join(', ') : 'none yet';
+
+    setText('map-title', isUA ? regionName(state.regionId) + ' hotspots' : 'Ukraine hotspots');
+    if (!key) { setText('map-status', 'Select a month in the calendar.'); return; }
+    if (!isUA) {
+      setText('map-status', 'Point data exist for Ukraine only. Choose Ukraine or an oblast. Point data available for: ' + available + '.');
+      return;
+    }
+    if (state.fireMonths && state.fireMonths.indexOf(key) === -1) {
+      setText('map-status', 'No point data for ' + key + '. Point data available for: ' + available + '.');
+      fitRegion();
+      return;
+    }
+    setText('map-status', 'Loading points for ' + key + '…');
+    var regionAtStart = state.regionId;
+    API.getFires(key).then(function (pts) {
+      if (key !== state.selected || regionAtStart !== state.regionId) return;
+      if (!Array.isArray(pts)) {
+        setText('map-status', 'No point data for ' + key + '. Point data available for: ' + available + '.');
+        fitRegion();
+        return;
+      }
+      var filtered = pts.filter(function (p) {
+        if (!p || !isNum(p.lat) || !isNum(p.lon)) return false;
+        if (state.regionId !== 'UKR' && p.region_id !== state.regionId) return false;
+        if (state.pointsFilter !== 'all' && p.sensor !== state.pointsFilter) return false;
+        return true;
+      });
+      state.fires = filtered;
+      drawFires();
+      var filterTxt = state.pointsFilter === 'all' ? 'MODIS + VIIRS' : state.pointsFilter;
+      setText('map-status', fmtInt(filtered.length) + ' hotspots (' + filterTxt + ') in ' + monthLabel(key) +
+        (isPrelim(key) ? ' — preliminary data' : '') + '.');
+      fitRegion();
+    });
+  }
+
+  function drawFires() {
+    if (!map || !firesLayer) return;
+    firesLayer.clearLayers();
+    // Draw weak fires first so strong ones stay visible on top.
+    var pts = state.fires.slice().sort(function (a, b) { return (a.frp || 0) - (b.frp || 0); });
+    pts.forEach(function (pt) {
+      var frp = isNum(pt.frp) ? pt.frp : null;
+      var color = frp === null ? '#94a3b8' : frp > 80 ? '#ef4444' : frp >= 25 ? '#f97316' : '#fbbf24';
+      var marker = L.circleMarker([pt.lat, pt.lon], {
+        renderer: canvasRenderer, radius: 3, fillColor: color, stroke: false, fillOpacity: 0.8
+      });
+      marker.bindPopup(function () { return popupFor(pt, frp); });
+      marker.addTo(firesLayer);
+    });
+  }
+
+  function popupFor(pt, frp) {
+    var box = document.createElement('div');
+    box.className = 'popup-box';
+    [
+      ['Sensor', (pt.sensor || 'n/a') + (pt.satellite ? ' (' + pt.satellite + ')' : '')],
+      ['Date', pt.date || 'n/a'],
+      ['FRP', frp === null ? 'n/a' : fmtNum(frp, 1) + ' MW'],
+      ['Region', regionName(pt.region_id)],
+      ['Lat, lon', pt.lat.toFixed(4) + ', ' + pt.lon.toFixed(4)]
+    ].forEach(function (l) {
+      var d = document.createElement('div');
+      d.textContent = l[0] + ': ' + l[1];
+      box.appendChild(d);
+    });
+    return box;
+  }
+
+  function exportPointsCSV() {
+    if (!state.fires.length) { alert('No points are shown on the map for this selection.'); return; }
+    downloadCSV(FIRE_COLUMNS, state.fires, 'P1t0n_hotspots_' + state.regionId + '_' + state.selected + '.csv');
+  }
+
+  /* ---------- events ---------- */
+
+  function bindEvents() {
+    $('region-select').addEventListener('change', function (e) {
+      state.regionId = e.target.value;
+      loadCalendar();
+    });
+
+    function onRange() {
+      var f = $('month-from').value, t = $('month-to').value;
+      if (!state.rows.length) return;
+      var first = ymKey(state.rows[0]), last = ymKey(state.rows[state.rows.length - 1]);
+      if (!/^\d{4}-\d{2}$/.test(f)) f = first;
+      if (!/^\d{4}-\d{2}$/.test(t)) t = last;
+      if (f < first) f = first;
+      if (t > last) t = last;
+      if (f > t) { var tmp = f; f = t; t = tmp; }
+      state.from = f; state.to = t;
+      $('month-from').value = f; $('month-to').value = t;
+      if (!state.selected || state.selected < f || state.selected > t) {
+        var inR = rowsInRange();
+        state.selected = inR.length ? ymKey(inR[inR.length - 1]) : null;
+        loadFires();
+      }
+      renderCalendar();
+    }
+    $('month-from').addEventListener('change', onRange);
+    $('month-to').addEventListener('change', onRange);
+
+    var segBtns = document.querySelectorAll('#series-toggle .seg-btn');
+    Array.prototype.forEach.call(segBtns, function (btn) {
+      btn.addEventListener('click', function () {
+        Array.prototype.forEach.call(segBtns, function (b) { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
+        btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
+        state.series = btn.getAttribute('data-series');
+        if (state.rows.length) renderCalendar();
+      });
+    });
+
+    var ptBtns = document.querySelectorAll('#points-toggle .seg-btn');
+    Array.prototype.forEach.call(ptBtns, function (btn) {
+      btn.addEventListener('click', function () {
+        Array.prototype.forEach.call(ptBtns, function (b) { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
+        btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
+        state.pointsFilter = btn.getAttribute('data-points');
+        loadFires();
+      });
+    });
+
+    $('toggle-anomalies-only').addEventListener('change', function (e) {
+      state.anomaliesOnly = e.target.checked;
+      if (state.rows.length) renderCalendar();
+    });
+
+    $('btn-calendar-csv').addEventListener('click', exportCalendarCSV);
+    $('btn-calendar-png').addEventListener('click', exportCalendarPNG);
+    $('btn-points-csv').addEventListener('click', exportPointsCSV);
+
+    document.addEventListener('click', hideTooltip);
+    window.addEventListener('scroll', hideTooltip, { passive: true });
+  }
+
+  /* ---------- presentation extras (all optional) ---------- */
+
+  function initProblemFigure() {
+    var img = $('problem-img');
+    var fig = $('problem-figure');
+    if (!img || !fig) return;
+    function hide() { fig.hidden = true; fig.parentNode.classList.add('no-figure'); }
+    if (img.complete && img.naturalWidth === 0) hide();
+    else img.addEventListener('error', hide);
+  }
+
+  function initScrollSpy() {
+    var sections = document.querySelectorAll('.site-section');
+    var tabs = document.querySelectorAll('.nav-tab');
+    function update() {
+      var current = '';
+      Array.prototype.forEach.call(sections, function (sec) {
+        if (window.scrollY >= sec.offsetTop - 250) current = sec.id;
+      });
+      Array.prototype.forEach.call(tabs, function (t) {
+        t.classList.toggle('active', t.getAttribute('data-target') === current);
       });
     }
+    window.addEventListener('scroll', update, { passive: true });
+    update();
   }
-  return data;
-}
 
-function generateMockFires(region, monthStr, sensor) {
-  const regInfo = GLOBAL_REGIONS[region] || { center: [20.0, 0.0] };
-  const center = regInfo.center;
-  const count = sensor === 'MODIS' ? 35 : 85;
-  const points = [];
-
-  for (let i = 0; i < count; i++) {
-    const angle = (i * 137.5) * (Math.PI / 180);
-    const dist = 0.5 + ((i % 15) * 0.4);
-    const day = String((i % 28) + 1).padStart(2, '0');
-    
-    points.push({
-      lat: center[0] + Math.sin(angle) * dist * 1.5,
-      lon: center[1] + Math.cos(angle) * dist * 2.0,
-      frp: Number((15 + ((i * 23) % 130)).toFixed(1)),
-      sensor: sensor === 'harmonized' ? (i % 3 === 0 ? 'MODIS (cal)' : 'VIIRS') : sensor,
-      date: `${monthStr}-${day}`
+  function initSpotlightCards() {
+    if (reduceMotion) return;
+    Array.prototype.forEach.call(document.querySelectorAll('.spotlight-card'), function (card) {
+      card.addEventListener('mousemove', function (e) {
+        var rect = card.getBoundingClientRect();
+        card.style.setProperty('--mouse-x', (e.clientX - rect.left) + 'px');
+        card.style.setProperty('--mouse-y', (e.clientY - rect.top) + 'px');
+      });
     });
   }
-  return points;
-}
+
+  // One decorative WebGL context at most. Not needed for anything; static when reduced motion is requested.
+  function initBackground() {
+    var canvas = $('globe-canvas');
+    if (!canvas || typeof THREE === 'undefined') return;
+
+    var renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+    } catch (e) {
+      return;
+    }
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 16;
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+    var earth = new THREE.Group();
+    scene.add(earth);
+    function place() {
+      if (window.innerWidth < 768) earth.position.set(0, 1.8, -5);
+      else earth.position.set(4.8, 0.6, -1.5);
+    }
+    place();
+
+    earth.add(new THREE.Mesh(
+      new THREE.SphereGeometry(5.3, 44, 44),
+      new THREE.MeshBasicMaterial({ color: 0xff5e2b, wireframe: true, transparent: true, opacity: 0.09 })
+    ));
+
+    var count = 2000;
+    var geo = new THREE.BufferGeometry();
+    var pos = new Float32Array(count * 3);
+    var col = new Float32Array(count * 3);
+    var cA = new THREE.Color(0xffb703), cO = new THREE.Color(0xff5e2b), cS = new THREE.Color(0x475569);
+    for (var i = 0; i < count; i++) {
+      var phi = Math.acos(-1 + (2 * i) / count);
+      var theta = Math.sqrt(count * Math.PI) * phi;
+      var r = 5.33;
+      pos[i * 3] = r * Math.cos(theta) * Math.sin(phi);
+      pos[i * 3 + 1] = r * Math.sin(theta) * Math.sin(phi);
+      pos[i * 3 + 2] = r * Math.cos(phi);
+      var c = i % 11 === 0 ? cA : i % 5 === 0 ? cO : cS; // decorative pattern, not data
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    earth.add(new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.068, vertexColors: true, transparent: true, opacity: 0.9 })));
+
+    function ring(radius, color, tx, ty) {
+      var m = new THREE.Mesh(
+        new THREE.RingGeometry(radius - 0.02, radius + 0.02, 96),
+        new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide, transparent: true, opacity: 0.35 })
+      );
+      m.rotation.x = tx; m.rotation.y = ty;
+      earth.add(m);
+    }
+    ring(6.4, 0xff5e2b, Math.PI / 2.4, 0.3);
+    ring(6.9, 0x38bdf8, Math.PI / 1.8, -0.4);
+
+    window.addEventListener('resize', function () {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      place();
+      if (reduceMotion) renderer.render(scene, camera);
+    });
+
+    if (reduceMotion) {
+      earth.rotation.y = 0.6;
+      renderer.render(scene, camera);
+      return;
+    }
+    (function animate() {
+      requestAnimationFrame(animate);
+      earth.rotation.y += 0.0018;
+      renderer.render(scene, camera);
+    })();
+  }
+})();
