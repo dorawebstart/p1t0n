@@ -14,7 +14,7 @@
 NASA satellites have recorded active fires since 2000, but the record is split between two generations of instruments:
 
 - **MODIS** on Terra and Aqua, since 2000, ~1 km pixels. These satellites are reaching the end of their mission.
-- **VIIRS**, its successor, ~375 m pixels, on Suomi NPP (2012), NOAA-20 and NOAA-21. It detects several times more hotspots for the same fires, and more VIIRS satellites mean even more detections.
+- **VIIRS**, its successor, ~375 m pixels, on Suomi NPP (2012), NOAA-20 (2018) and NOAA-21 (2023). It detects several times more hotspots for the same fires, and more VIIRS satellites mean even more detections. FIRMS stopped producing new Suomi NPP data on 2 November 2026; NOAA-20 and NOAA-21 carry the record forward.
 
 Adding the archives together produces a false jump in fire activity after 2012. Without harmonization, 25 years of global fire history cannot be compared with what VIIRS sees today.
 
