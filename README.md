@@ -4,7 +4,7 @@
 
 > Work in progress during the hackathon (14–15 November 2026).
 
-- **Live site:** TODO
+- **Live site:** https://dorawebstart.github.io/p1t0n/
 - **Mirror:** TODO
 - **Demo video (≤ 30 s):** TODO
 - **Team page:** https://www.spaceappschallenge.org/2026/find-a-team/p1t0n/
