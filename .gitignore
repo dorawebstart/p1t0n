@@ -1,0 +1,29 @@
+# Secrets — never commit (FIRMS MAP_KEY etc.)
+.env
+.env.*
+!.env.example
+
+# Raw and large data live in the shared Google Drive folder, not in git
+data/raw/
+data/processed/
+*.zip
+*.parquet
+*.gpkg
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
