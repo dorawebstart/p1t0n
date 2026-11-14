@@ -154,6 +154,58 @@ def world_calendars(grid_path: Path, cc_path: Path):
     return cal, meta
 
 
+def world_cells(grid_path: Path) -> dict:
+    """Harmonized hotspots per 1° cell and month for the world map: {'YYYY-MM': [[lat, lon, count], ...]}.
+    lat/lon = south-west corner of the 1° cell. Sum of all cells of a month = WORLD calendar of that month."""
+    parts = []
+    for chunk in pd.read_csv(grid_path, usecols=["cell_id", "year", "month", "harmonized_count"], chunksize=2_000_000):
+        ll = chunk["cell_id"].str.split("_", expand=True).astype(float)
+        chunk["la"] = np.floor(ll[0]).astype(int)
+        chunk["lo"] = np.floor(ll[1]).astype(int)
+        parts.append(chunk.groupby(["year", "month", "la", "lo"])["harmonized_count"].sum().reset_index())
+    g = pd.concat(parts).groupby(["year", "month", "la", "lo"], as_index=False)["harmonized_count"].sum()
+    g = g[g["harmonized_count"] > 0]
+    out = {}
+    for (y, m), d in g.groupby(["year", "month"]):
+        out[f"{y}-{m:02d}"] = [[int(a), int(b), round(float(c), 1)] for a, b, c in
+                               zip(d["la"], d["lo"], d["harmonized_count"])]
+    return out
+
+
+def raw_series(cal: pd.DataFrame) -> dict:
+    """Yearly raw counts MODIS (Terra+Aqua) vs Suomi NPP, 2001-2025, for the 3D chart in 'Problem'."""
+    res = {}
+    ua = ROOT / "analysis/out/raw_series_ukraine.csv"
+    if ua.exists():
+        u = pd.read_csv(ua)
+        check_cols(u, ["year", "MODIS", "VIIRS (Suomi NPP)"], "raw_series_ukraine.csv")
+        res["ukraine"] = [{"year": int(r.year), "modis": int(r.MODIS), "viirs": int(r[2])}
+                          for r in u.itertuples(index=False)]
+    w = cal[(cal.region_id == "WORLD") & cal.year.between(2001, 2025)]
+    if len(w):
+        yw = w.groupby("year")[["modis_count", "viirs_count"]].sum(min_count=1).fillna(0)
+        res["world"] = [{"year": int(y), "modis": int(round(r.modis_count)), "viirs": int(round(r.viirs_count))}
+                        for y, r in yw.iterrows()]
+    for v in res.values():
+        for r in v:
+            r["ratio"] = round(r["viirs"] / r["modis"], 2) if r["viirs"] and r["modis"] else None
+    return res
+
+
+def validation_series() -> dict:
+    """Held-out 2021-2025 monthly totals: real Suomi NPP vs MODIS scaled vs raw MODIS (Yehor's model/out)."""
+    res = {}
+    for key, name in [("ukraine", "validation_UKR.csv"), ("world", "validation_world.csv")]:
+        p = ROOT / "model/out" / name
+        if p.exists():
+            v = pd.read_csv(p)
+            check_cols(v, ["year", "month", "snpp", "modis_scaled", "modis_raw"], name)
+            res[key] = [{"year": int(r.year), "month": int(r.month), "snpp": round(float(r.snpp), 1),
+                         "modis_scaled": round(float(r.modis_scaled), 1), "modis_raw": round(float(r.modis_raw), 1)}
+                        for r in v.itertuples(index=False)]
+    return res
+
+
 def metrics_block(path: Path):
     if not path.exists():
         return None
@@ -250,6 +302,19 @@ def main():
 
     coef = pd.read_csv(ROOT / "model/out/coefficients_ukraine.csv")
     write("coefficients.json", rows(coef[["month", "k_aqua", "k_terra"]].round(3)))
+    write("raw_series.json", raw_series(cal))
+    write("validation.json", validation_series())
+
+    world_cell_months = []
+    if args.world_grid:
+        cells = world_cells(args.world_grid)
+        wcal_check = cal[cal.region_id == "WORLD"].set_index(["year", "month"])["harmonized_count"]
+        for ym, recs in cells.items():
+            write(f"world_cells/{ym}.json", recs)
+            world_cell_months.append(ym)
+        y, m = 2024, 8
+        s = sum(r[2] for r in cells[f"{y}-{m:02d}"])
+        print(f"Check 1° cells vs WORLD calendar {y}-{m:02d}: {s:,.0f} vs {wcal_check.loc[(y, m)]:,.0f}")
 
     metrics = {
         "ukraine": metrics_block(ROOT / "model/out/metrics_UKR.json"),
@@ -277,7 +342,8 @@ def main():
     write("manifest.json", {
         "fake": False, "contract": "v2", "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "calendar_source": source, "last_complete_month": f"{last_ym[0]}-{last_ym[1]:02d}",
-        "preliminary_from": "2026-01", "fire_months": fire_months, "files": files})
+        "preliminary_from": "2026-01", "fire_months": fire_months,
+        "world_cell_deg": 1, "world_cell_months": world_cell_months, "files": files})
 
     (OUT / "README.md").write_text(
         "# frontend/public/data — data for the site\n\n"
