@@ -71,7 +71,7 @@
   /* ---------- 2. Weight wave on the title ---------- */
   (function () {
     var title = hero.querySelector('.landing-title');
-    if (!title || reduce) return;
+    if (!title || reduce || !finePointer) return;   // no pointer to follow on phones; saves a relayout every frame
     var LIGHT = 600, BOLD = 900, SPREAD = 0.13;   // SPREAD: width of the swell, share of the title width
     title.setAttribute('aria-label', title.textContent.replace(/\s+/g, ' ').trim());
     var letters = [];

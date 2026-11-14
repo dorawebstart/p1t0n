@@ -516,7 +516,7 @@ body {
   display: grid;
   grid-template-columns: 1.2fr 1fr 1fr 1.5fr;
   gap: 18px;
-  align-items: end;
+  align-items: start;
   margin-bottom: 24px;
 }
 
@@ -1657,4 +1657,13 @@ body {
 .orbital-badge .scr-caret {
   display: inline-block; width: .55em; height: 1.05em; margin-left: .15em; vertical-align: -.18em;
   background: var(--ember-secondary); border-radius: 2px;
+}
+
+/* ---------- Phones and touch screens: lighter rendering ----------
+   Glass blur over the animated globe made iPhones skip painting while scrolling (blank sections).
+   Without a mouse there is nothing behind the glass worth blurring: use solid panels. */
+@media (hover: none), (pointer: coarse), (max-width: 768px) {
+  *, *::before, *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  .glass-panel { background: rgba(16, 18, 25, 0.97); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+  .kpi-card { background: rgba(16, 18, 25, 0.97); }
 }

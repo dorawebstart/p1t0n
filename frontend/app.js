@@ -26,6 +26,8 @@
   var FIRE_COLUMNS = ['date', 'lat', 'lon', 'frp', 'sensor', 'satellite', 'region_id'];
 
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Phones and touch screens: lighter rendering (see the globe and the 3D chart).
+  var LITE = !!(window.matchMedia && window.matchMedia('(hover: none), (pointer: coarse), (max-width: 768px)').matches);
 
   var state = {
     manifest: null,
@@ -218,7 +220,9 @@
   /* ---------- startup ---------- */
 
   document.addEventListener('DOMContentLoaded', function () {
-    safe(initBackground);
+    // Decorative globe after the page has painted, so the first screen shows at once.
+    if (document.readyState === 'complete') setTimeout(function () { safe(initBackground); }, 200);
+    else window.addEventListener('load', function () { setTimeout(function () { safe(initBackground); }, 200); });
     safe(initSpotlightCards);
     safe(initScrollSpy);
     safe(initMap);
@@ -1183,7 +1187,7 @@
     // Loose month parser: "2016-1", "2016-01", "2016/1", "2016.1", "201601", "2016" (whole year).
     // Returns 'YYYY-MM' or null; isEnd picks December for a bare year.
     function parseMonth(s, isEnd) {
-      var m = /^\s*(\d{4})\s*(?:[-./\s]\s*(\d{1,2})|(\d{2}))?\s*$/.exec(String(s || ''));
+      var m = /^\s*(\d{4})\s*(?:[-.,/\s]\s*(\d{1,2})|(\d{2}))?\s*$/.exec(String(s || ''));
       if (!m) return null;
       var mo = m[2] || m[3];
       var n = mo ? parseInt(mo, 10) : (isEnd ? 12 : 1);
@@ -1217,7 +1221,7 @@
       el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); onRange(); } });
       // Keep only digits and separators while typing.
       el.addEventListener('input', function () {
-        var v = el.value.replace(/[^\d\-./ ]/g, '');
+        var v = el.value.replace(/[^\d\-.,/ ]/g, '');
         if (v !== el.value) el.value = v;
       });
     });
@@ -1656,6 +1660,21 @@
         return;
       }
       updateRawText();
+      whenNear(box, function () { buildRawView(box); });
+    });
+  }
+
+  // Run fn once el is within ~300 px of the viewport (no second WebGL context at page load).
+  function whenNear(el, fn) {
+    if (typeof IntersectionObserver === 'undefined') { fn(); return; }
+    var io = new IntersectionObserver(function (es) {
+      if (es.some(function (e) { return e.isIntersecting; })) { io.disconnect(); fn(); }
+    }, { rootMargin: '300px 0px' });
+    io.observe(el);
+  }
+
+  function buildRawView(box) {
+    {
       var view = null;
       if (!reduceMotion && typeof THREE !== 'undefined') {
         try { view = createRaw3D(box); } catch (e) { view = null; if (window.console) console.warn('[P1t0n] 3D chart unavailable:', e); }
@@ -1666,7 +1685,7 @@
         view = createRawSVG(box);
       }
       raw.view = view;
-    });
+    }
   }
 
   function updateRawText() {
@@ -1719,7 +1738,7 @@
     var T = THREE;
     var renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
     if (!renderer.getContext()) throw new Error('no WebGL context');
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(LITE ? Math.min(window.devicePixelRatio || 1, 1.5) : Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0x000000, 0);
     box.appendChild(renderer.domElement);
     renderer.domElement.className = 'raw-canvas';
@@ -2005,7 +2024,7 @@
 
     var renderer;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: !LITE });
     } catch (e) {
       return;
     }
@@ -2013,7 +2032,7 @@
     var camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 16;
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(LITE ? 1 : Math.min(window.devicePixelRatio || 1, 2));
 
     var earth = new THREE.Group();
     scene.add(earth);
@@ -2058,7 +2077,12 @@
     ring(6.4, 0xff5e2b, Math.PI / 2.4, 0.3);
     ring(6.9, 0x38bdf8, Math.PI / 1.8, -0.4);
 
+    // iOS fires resize whenever the address bar shows or hides while scrolling; reallocating the
+    // full-screen canvas then made the page flash empty. Only react to real size changes.
+    var lastW = window.innerWidth, lastH = window.innerHeight;
     window.addEventListener('resize', function () {
+      if (window.innerWidth === lastW && Math.abs(window.innerHeight - lastH) < 160) return;
+      lastW = window.innerWidth; lastH = window.innerHeight;
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -2071,10 +2095,16 @@
       renderer.render(scene, camera);
       return;
     }
-    (function animate() {
+    // Phones: ~30 fps and no redraw while the page is scrolling, so scrolling keeps the GPU.
+    var scrollingUntil = 0, lastDraw = 0;
+    if (LITE) window.addEventListener('scroll', function () { scrollingUntil = performance.now() + 250; }, { passive: true });
+    (function animate(ts) {
       requestAnimationFrame(animate);
       if (bgPaused) return; // the 3D chart is on screen: save the GPU for it
-      earth.rotation.y += 0.0018;
+      ts = ts || performance.now();
+      if (LITE && (ts < scrollingUntil || ts - lastDraw < 33)) return;
+      lastDraw = ts;
+      earth.rotation.y += LITE ? 0.0034 : 0.0018;
       renderer.render(scene, camera);
     })();
   }
