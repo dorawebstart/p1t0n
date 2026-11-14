@@ -1505,6 +1505,22 @@ body {
 .tt-note { color: #fca50a; margin-top: 4px; }
 .floating-tooltip div { line-height: 1.45; }
 
+/* Tab pill (nav-pill.js): one ember pill slides and stretches under the active tab.
+   Springs are "stiffness damping", same values as the motion study's tokens. */
+:root { --spring-lead: 620 36; --spring-trail: 190 19; }
+.nav-links { position: relative; }
+.nav-links .nav-pill {
+  position: absolute; left: 0; top: 4px; bottom: 4px; width: 0;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--ember-primary), #d9381e);
+  box-shadow: 0 2px 14px rgba(255, 94, 43, 0.45);
+  will-change: transform, width;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+.nav-links.has-pill .nav-tab { position: relative; z-index: 1; transition: color .25s; }
+.nav-links.has-pill .nav-tab.active { background: transparent; box-shadow: none; }
+.nav-links.has-pill .nav-tab.active:hover { background: transparent; }
 .nav-links { scrollbar-width: none; }
 .nav-links::-webkit-scrollbar { display: none; }
 
