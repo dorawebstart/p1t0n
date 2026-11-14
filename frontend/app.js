@@ -353,7 +353,7 @@
       }
       var first = ymKey(clean[0]), last = ymKey(clean[clean.length - 1]);
       var fromIn = $('month-from'), toIn = $('month-to');
-      [fromIn, toIn].forEach(function (inp) { inp.min = first; inp.max = last; });
+      setText('to-help', 'Last month shown. Data: ' + first + ' … ' + last + '.');
       // Keep the user's range if it still fits; otherwise use the full range.
       // A range that ran to the end of the previous zone's data keeps running to the end.
       if (state.to && state.to === state.lastRowKey) state.to = last;
@@ -591,9 +591,9 @@
     setText('insp-date', monthLabel(key) + ' · ' + regionName(state.regionId) + ' · ' + SERIES[state.series].short);
     setText('ro-value', fmtInt(v));
     setText('ro-median', fmtInt(med));
-    setText('ro-z', isNum(z) ? fmtZ(z) + ' (harmonized series)' : 'n/a');
+    setText('ro-z', isNum(z) ? fmtZ(z) + (state.series === 'harmonized' ? '' : ' (harmonized)') : 'n/a');
     if (isNum(row.p25_count) && isNum(row.p75_count)) {
-      setText('ro-range', fmtInt(row.p25_count) + ' – ' + fmtInt(row.p75_count));
+      setText('ro-range', fmtInt(row.p25_count) + ' – ' + fmtInt(row.p75_count) + (state.series === 'harmonized' ? '' : ' (harmonized)'));
     } else {
       setText('ro-range', 'not available in this data');
     }
@@ -905,7 +905,16 @@
           var p1 = map.project([lat + deg, lon], z).subtract(origin);
           var p2 = map.project([lat, lon + deg], z).subtract(origin);
           ctx.fillStyle = paletteAt(span > 0 ? (Math.log(n) - logLo) / span : 1);
-          ctx.fillRect(Math.floor(p1.x), Math.floor(p1.y), Math.max(1, Math.ceil(p2.x - p1.x)), Math.max(1, Math.ceil(p2.y - p1.y)));
+          var w = p2.x - p1.x, h = p2.y - p1.y;
+          if (w < 6) {
+            // Whole-world view: a cell is a few pixels, a filled square reads as a dot anyway.
+            ctx.fillRect(Math.floor(p1.x), Math.floor(p1.y), Math.max(1, Math.ceil(w)), Math.max(1, Math.ceil(h)));
+          } else {
+            // Zoomed in: one dot per 1° cell, centred in the cell, so the grid does not look like blocks.
+            ctx.beginPath();
+            ctx.arc(p1.x + w / 2, p1.y + h / 2, Math.min(w, h) * 0.42, 0, 2 * Math.PI);
+            ctx.fill();
+          }
         }
         return tile;
       }
@@ -1171,14 +1180,26 @@
       loadCalendar();
     });
 
+    // Loose month parser: "2016-1", "2016-01", "2016/1", "2016.1", "201601", "2016" (whole year).
+    // Returns 'YYYY-MM' or null; isEnd picks December for a bare year.
+    function parseMonth(s, isEnd) {
+      var m = /^\s*(\d{4})\s*(?:[-./\s]\s*(\d{1,2})|(\d{2}))?\s*$/.exec(String(s || ''));
+      if (!m) return null;
+      var mo = m[2] || m[3];
+      var n = mo ? parseInt(mo, 10) : (isEnd ? 12 : 1);
+      if (n < 1 || n > 12) return null;
+      return m[1] + '-' + (n < 10 ? '0' : '') + n;
+    }
+    function clampKey(k, lo, hi) { return k < lo ? lo : (k > hi ? hi : k); }
+
     function onRange() {
-      var f = $('month-from').value, t = $('month-to').value;
       if (!state.rows.length) return;
       var first = ymKey(state.rows[0]), last = ymKey(state.rows[state.rows.length - 1]);
-      if (!/^\d{4}-\d{2}$/.test(f)) f = first;
-      if (!/^\d{4}-\d{2}$/.test(t)) t = last;
-      if (f < first) f = first;
-      if (t > last) t = last;
+      // Invalid text falls back to the previous value; both ends are clamped to the data range.
+      var f = parseMonth($('month-from').value, false) || state.from || first;
+      var t = parseMonth($('month-to').value, true) || state.to || last;
+      f = clampKey(f, first, last);
+      t = clampKey(t, first, last);
       if (f > t) { var tmp = f; f = t; t = tmp; }
       state.from = f; state.to = t;
       $('month-from').value = f; $('month-to').value = t;
@@ -1189,8 +1210,17 @@
       }
       renderCalendar();
     }
-    $('month-from').addEventListener('change', onRange);
-    $('month-to').addEventListener('change', onRange);
+    // Applied on Enter or leaving the field (change), never while typing.
+    ['month-from', 'month-to'].forEach(function (id) {
+      var el = $(id);
+      el.addEventListener('change', onRange);
+      el.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); onRange(); } });
+      // Keep only digits and separators while typing.
+      el.addEventListener('input', function () {
+        var v = el.value.replace(/[^\d\-./ ]/g, '');
+        if (v !== el.value) el.value = v;
+      });
+    });
 
     // One series for the calendar and the world map: the two switches stay in sync.
     var segBtns = document.querySelectorAll('#series-toggle .seg-btn, #cells-series-toggle .seg-btn');
