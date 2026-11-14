@@ -1,0 +1,44 @@
+{
+  "train_years": "2012-2020",
+  "test_years": "2021-2025",
+  "monthly_totals": {
+    "mae": 593.03,
+    "r2": 0.9531,
+    "bias_pct": 3.7,
+    "wape_pct": 14.0,
+    "n": 60
+  },
+  "cell_months": {
+    "mae": 5.64,
+    "r2": 0.7501,
+    "bias_pct": 3.7,
+    "wape_pct": 62.1,
+    "n": 28037
+  },
+  "raw_modis_vs_snpp_monthly_totals": {
+    "mae": 3007.27,
+    "r2": 0.1618,
+    "bias_pct": -70.9,
+    "wape_pct": 70.9,
+    "n": 60
+  },
+  "per_band_monthly_totals": {
+    "40..50": {
+      "mae": 529.03,
+      "r2": 0.9393,
+      "bias_pct": 4.7,
+      "wape_pct": 15.0,
+      "n": 60
+    },
+    "50..60": {
+      "mae": 119.42,
+      "r2": 0.9772,
+      "bias_pct": -1.0,
+      "wape_pct": 16.5,
+      "n": 60
+    }
+  },
+  "input": "grid_monthly_UKR_v1.csv.gz",
+  "band_degrees": 10,
+  "viirs_reference": "Suomi NPP (VNP14IMG); coefficients SNPP/Aqua and SNPP/Terra per latitude band x month, trained 2012-2020"
+}
