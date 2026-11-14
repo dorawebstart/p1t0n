@@ -35,15 +35,17 @@
 
 ## 4. Як об'єднуються дані між ролями
 
-Ланцюжок: **FIRMS → `fires` → `calendar` + `metrics` → файли для сайту → фронтенд.** Кожна ланка віддає наступній файл у форматі контракту з `CLAUDE.md`. Формат контракту без згоди команди не міняється.
+Ланцюжок: **FIRMS → `grid_monthly` (світ) + `fires` (Україна) → `grid_harmonized` + `calendar` + `metrics` → файли для сайту → фронтенд.** Кожна ланка віддає наступній файл у форматі контракту з `CLAUDE.md` (версія 2). Формат контракту без згоди команди не міняється.
 
 | Крок | Хто | Що віддає | Куди кладе |
 |---|---|---|---|
-| 1 | Data engineer | Сирі CSV із FIRMS | Drive: `raw/` |
-| 2 | Data engineer | `fires.csv` (очищено, з областями) | Drive: `processed/fires_vN.csv` |
-| 3 | Data scientist | `calendar.csv`, `metrics.json` | репозиторій: `data/` |
-| 4 | Капітан | JSON для сайту: `regions.json`, `calendar/<region>.json`, `fires/<region>/<YYYY-MM>.json` | репозиторій: `frontend/public/data/` |
+| 1 | Data engineer | Сирі CSV із FIRMS (світ по роках, Україна) | Drive: `raw/` |
+| 2 | Data engineer | `grid_monthly_vN.csv` (світ, клітинки 0,25°), `fires_vN.csv` (Україна) | Drive: `processed/` |
+| 3 | Data scientist | `grid_harmonized.csv`, `calendar.csv`, `metrics.json` | Drive: `processed/`; малі файли — репозиторій `data/` |
+| 4 | Капітан | JSON для сайту: `regions.json`, `grid/<tile>.json`, `calendar/<region_id>.json`, `fires/UA/<YYYY-MM>.json`, `metrics.json` | репозиторій: `frontend/public/data/` |
 | 5 | Фронтенд | Сайт, що читає ці файли через `api.js` | репозиторій: `frontend/` |
+
+Почніть ланцюжок на Україні: файли малі, усе проходить за хвилини. Коли працює від початку до кінця, той самий код запускається на світі.
 
 Правила, які рятують від плутанини:
 - **Фейкові дані з першої години.** Капітан одразу кладе у `frontend/public/data/` вигадані файли в точному форматі контракту. Фронтенд і дизайн працюють, не чекаючи справжніх даних. Потім файли просто замінюються.
