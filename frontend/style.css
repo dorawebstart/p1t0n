@@ -1642,3 +1642,19 @@ body {
   .btn-primary:hover { transform: none; }
 }
 .svg-leader { stroke: var(--ember-secondary); stroke-width: 1; stroke-dasharray: 2 2; }
+
+/* ---------- Hero motion (hero-motion.js) ---------- */
+/* Magnetic button: the spring drives transform, so no CSS transition on it. */
+.btn-hero.magnetic { transition: box-shadow .25s ease, background .25s ease, color .25s ease; will-change: transform; }
+.btn-hero.magnetic:hover { transform: none; }
+.btn-hero .mag-lbl { display: inline-flex; align-items: center; gap: 8px; will-change: transform; pointer-events: none; }
+/* Weight wave: one inline span per letter (inline keeps the ember gradient clipped to the text). */
+.landing-title.weight-wave .wch { font-weight: 700; }
+/* Scramble text: unsettled letters dim, settled letters in the badge colour; blinking caret. */
+.orbital-badge .scramble { white-space: pre-wrap; }
+.orbital-badge .scr-c { opacity: .45; }
+.orbital-badge .scr-c.ok { opacity: 1; }
+.orbital-badge .scr-caret {
+  display: inline-block; width: .55em; height: 1.05em; margin-left: .15em; vertical-align: -.18em;
+  background: var(--ember-secondary); border-radius: 2px;
+}
