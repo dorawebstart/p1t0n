@@ -42,8 +42,9 @@
           <a href="#problem" class="nav-tab" data-target="problem"><span class="tab-num">02</span> Problem</a>
           <a href="#method" class="nav-tab" data-target="method"><span class="tab-num">03</span> Method</a>
           <a href="#calendar" class="nav-tab" data-target="calendar"><span class="tab-num">04</span> Calendar</a>
-          <a href="#map-section" class="nav-tab" data-target="map-section"><span class="tab-num">05</span> Map</a>
-          <a href="#about" class="nav-tab" data-target="about"><span class="tab-num">06</span> About</a>
+          <a href="#outlook" class="nav-tab" data-target="outlook"><span class="tab-num">05</span> Outlook</a>
+          <a href="#map-section" class="nav-tab" data-target="map-section"><span class="tab-num">06</span> Map</a>
+          <a href="#about" class="nav-tab" data-target="about"><span class="tab-num">07</span> About</a>
         </nav>
 
         <div class="nav-status">
@@ -87,7 +88,7 @@
             <a href="#method" class="btn btn-outline btn-hero" title="Jump to the method and the math">
               <span>How the method works</span>
             </a>
-            <a href="outlook.html" class="btn btn-outline btn-hero" title="Where fires are likely in the next 12 months">
+            <a href="#outlook" class="btn btn-outline btn-hero" title="Where fires are likely in the next 12 months">
               <span>Fire outlook</span>
             </a>
           </div>
@@ -336,7 +337,7 @@
               <div class="eyebrow">7 • Fire outlook — where fires are likely next</div>
               <h3>A forecast from 25 years of harmonized hotspots</h3>
             </div>
-            <a class="btn btn-primary btn-csv" href="outlook.html" title="Open the fire outlook map for the next 12 months">Open the outlook map →</a>
+            <a class="btn btn-primary btn-csv" href="#outlook" title="Go to the fire outlook map for the next 12 months">Open the outlook map ↓</a>
           </div>
           <div class="outlook-body">
             <div>
@@ -505,12 +506,90 @@
       </div>
     </section>
 
-    <!-- 6. MAP (secondary) -->
+
+    <!-- 6. FIRE OUTLOOK (forecast) -->
+    <section id="outlook" class="site-section section-auto">
+      <div class="container">
+
+        <div class="workspace-top-bar"><div>
+      <div class="eyebrow">06 • Fire outlook</div>
+      <h2 class="page-heading">Where fires are likely in <span class="text-ember" id="ol-month-title">the next months</span></h2>
+    </div></div>
+    <p class="ol-lead reveal">A seasonal outlook for the <strong>next 12 months</strong>, built from 25 years of harmonized NASA hotspots (2001–2025). For every 1° cell and month it gives the probability of an <strong>active fire month</strong> — at least 10 hotspots on the Suomi NPP scale. Recent years weigh more, so changes in the burning regime show up. We prove it on years the model never saw, including real fires in Ukraine in 2026.</p>
+
+    <div class="ol-grid reveal d1">
+      <div class="glass-panel ol-card">
+        <div class="segmented-control ol-months" id="ol-months" role="group" aria-label="Month"></div>
+        <div id="ol-map" role="img" aria-label="Map of fire probability per 1 degree cell"></div>
+        <div class="ol-legend">
+          <span>Probability of ≥ 10 hotspots per 1° cell in the month</span>
+          <span>5%</span><span class="ol-bar"></span><span>100%</span>
+          <span id="ol-count"></span>
+        </div>
+      </div>
+
+      <div class="glass-panel ol-card">
+        <div class="eyebrow">How it works</div>
+        <h3>Recency-weighted climatology</h3>
+        <div class="ol-formula" id="ol-formula">e(c,y,m) = 1 if H(c,y,m) ≥ 10
+w(y)     = 0.5^((2025 − y) / h)
+p(c,m)   = (Σ w·e + a·p₀(m)) / (Σ w + a)
+E(c,m)   = Σ w·H / Σ w</div>
+        <p class="ol-note">H — harmonized hotspots of cell c in year y, month m. h — half-life in years, a — strength of a prior that pulls rarely seen cells toward the month's global base rate p₀. Both are chosen by forecasting 2016–2020 from the years before; the test years 2021–2025 are never used for the choice.</p>
+        <div class="eyebrow" style="margin-top:14px">Tested on unseen years 2021–2025</div>
+        <div class="ol-kpis" id="ol-kpis-test"></div>
+        <div class="eyebrow" style="margin-top:6px">Real out-of-sample test: Ukraine, Jan–Oct 2026</div>
+        <div class="ol-kpis" id="ol-kpis-ua"></div>
+        <p class="ol-note" id="ol-notes"></p>
+      </div>
+    </div>
+
+
+    <div class="ol-explain reveal d3">
+      <div><b>Why the whole world?</b>The outlook does not touch individual hotspots. It uses the same 1° cells as the world map — about 16 400 cells × 300 months, already summed from 515 million NASA hotspots — so the whole planet is computed in a few minutes on a laptop.</div>
+      <div><b>Why Ukraine for the proof?</b>To test a forecast honestly you need fires that happened <em>after</em> the model was built. NASA's yearly world archive for 2026 is not published yet; for Ukraine we downloaded the 2026 hotspots through the FIRMS API, so Ukraine is our real, out-of-sample check.</div>
+      <div><b>What it is — and is not</b>A statistical outlook from 25 years of history: where and in which months fires usually happen, with recent years weighted more. It does not use weather, so it cannot see a dry spring coming — a fire-weather index is the next step.</div>
+    </div>
+    <div class="ol-row reveal d2">
+      <div class="glass-panel ol-card">
+        <div class="eyebrow">Proof · Ukraine 2026 — forecast vs reality</div>
+        <h3>Expected and observed hotspots per month</h3>
+        <svg id="ol-ua" viewBox="0 0 520 240" width="100%" role="img" aria-label="Expected versus observed hotspots in Ukraine 2026"></svg>
+        <p class="ol-note">Cells fully inside Ukraine. Expected — from data up to December 2025 only; observed — real Suomi NPP hotspots of 2026 (preliminary).</p>
+      </div>
+      <div class="glass-panel ol-card">
+        <div class="eyebrow">Proof · Is a 30 % forecast really 30 %?</div>
+        <h3>Reliability on 2021–2025</h3>
+        <svg id="ol-rel" viewBox="0 0 520 240" width="100%" role="img" aria-label="Reliability diagram"></svg>
+        <p class="ol-note">Each dot: cells forecast with a given probability (x) and how often they actually had an active fire month (y). On the diagonal = honest probabilities.</p>
+      </div>
+    </div>
+
+    <div class="glass-panel ol-card reveal" style="margin-top:20px" id="ol-method">
+      <div class="eyebrow">The mathematics, step by step</div>
+      <h3>How the outlook is computed and tested</h3>
+      <div class="ol-steps">
+        <div><b>1 · Event.</b> For every 1° cell <i>c</i>, year <i>y</i> and calendar month <i>m</i>, take the harmonized count H(c,y,m) (MODIS translated to the Suomi NPP scale before 2012, real Suomi NPP after). An <i>active fire month</i> is e = 1 if H ≥ 10, otherwise 0. Ten hotspots in a ~10 000 km² cell is a fire season, not a single stray detection.</div>
+        <div><b>2 · Recent years weigh more.</b> Year weights w(y) = 0.5<sup>(2025 − y)/h</sup>: a year <i>h</i> years older counts half as much. The outlook follows changes in the burning regime while still using all 25 years.</div>
+        <div><b>3 · Probability with a Bayesian prior.</b> Treat e as a Bernoulli trial with unknown probability p and give p a Beta prior centred on the month's global base rate p₀(m) with strength <i>a</i>. With weighted observations the posterior mean is<br><code>p(c,m) = (Σ w·e + a·p₀(m)) / (Σ w + a)</code><br>Cells with a long record follow their own history; cells that rarely burned are pulled gently toward the base rate instead of an overconfident 0 or 1.</div>
+        <div><b>4 · Expected count.</b> <code>E(c,m) = Σ w·H / Σ w</code>, the weighted mean number of hotspots. It is less reliable than p (years before 2012 had stronger spring burning, which lifts the mean), so the map shows p.</div>
+        <div><b>5 · Choosing h and a without peeking.</b> Each candidate pair forecasts every year 2016–2020 from the years before it; the pair with the lowest Brier score wins. The test years 2021–2025 are never used for the choice. <span id="ol-choice"></span></div>
+        <div><b>6 · Scores.</b> Brier score BS = mean (p − e)² (0 = perfect). Skill against a reference: BSS = 1 − BS / BS<sub>ref</sub>; references are the plain 25-year average (all years equal) and “same as last year”. ROC AUC: the chance that a randomly chosen active cell-month got a higher p than an inactive one (0.5 = coin, 1 = perfect). Reliability: forecasts grouped by p, compared with how often fire really happened.</div>
+        <div><b>7 · A true forward test.</b> The outlook built from data up to December 2025 is compared with real Suomi NPP hotspots in Ukraine, January–October 2026, data that did not exist when the model was fitted. Only cells fully inside Ukraine, so border cells are not undercounted.</div>
+        <div><b>Limits.</b> A statistical, history-based outlook: it knows where and when fires usually happen and how that is changing, but it does not see weather (a dry spell or a wet month). Adding a fire-weather index is the next step. World data end in December 2025 (yearly NASA archives), so the outlook is built from 2001–2025.</div>
+      </div>
+      <div class="eyebrow" style="margin-top:14px">Parameter search: Brier score on 2016–2020 (lower = better)</div>
+      <div id="ol-grid" class="ol-gridtable"></div>
+    </div>
+      </div>
+    </section>
+
+    <!-- 7. MAP (secondary) -->
     <section id="map-section" class="site-section section-auto">
       <div class="container">
         <div class="workspace-top-bar">
           <div>
-            <div class="eyebrow">06 • Map</div>
+            <div class="eyebrow">07 • Map</div>
             <h2 class="page-heading">Fire activity of the selected month</h2>
           </div>
         </div>
@@ -578,7 +657,7 @@
       <div class="container">
         <div class="workspace-top-bar">
           <div>
-            <div class="eyebrow">07 • How we built it</div>
+            <div class="eyebrow">08 • How we built it</div>
             <h2 class="page-heading">Data chain, code and credits</h2>
           </div>
         </div>
@@ -652,6 +731,7 @@
   <script src="api.js"></script>
   <script src="app.js"></script>
   <script src="nav-pill.js"></script>
+  <script src="outlook.js"></script>
   <script src="seg-motion.js"></script>
   <script src="hero-motion.js"></script>
 </body>
