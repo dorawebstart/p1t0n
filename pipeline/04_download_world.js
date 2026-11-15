@@ -1,6 +1,6 @@
 // Written with the assistance of Claude Code (AI); reviewed and run by the P1t0n data engineer.
 // Крок 4. Архіви світу FIRMS «Country Yearly Summary» (Standard Processing), по одному zip на рік і сенсор.
-// Порядок як у docs/ROLE_TASKS.md: modis → viirs-snpp (еталон) → viirs-jpss1 (місток NOAA-20).
+// Порядок завантаження: modis → viirs-snpp (еталон) → viirs-jpss1 (місток NOAA-20).
 // Разом ≈ 10 ГБ. Вже завантажені файли пропускаються (розмір звіряється зі списком FIRMS).
 // Запуск: node pipeline/04_download_world.js [modis|viirs-snpp|viirs-jpss1 ...]
 const fs = require('fs');

@@ -6,7 +6,7 @@
 - **`grid_monthly`** — кількість точок у клітинках 0,25° за місяць і супутник, для всього світу;
 - **`cell_country`** — довідник «клітинка → країна (ISO-3) → область України», щоб рахувати календарі країн і областей.
 
-Працюйте у своїй гілці, у `main` — через Pull Request. Правила: `docs/TEAM_WORKFLOW.md`.
+Працюйте у своїй гілці, у `main` — через Pull Request. Усе про проєкт: `docs/P1T0N.md`.
 
 > Parts of the code in this folder were written with the assistance of AI (Claude Code). Data choices, filtering rules and checks were reviewed by the team. Details: `docs/SI_USAGE_LOG.md`.
 

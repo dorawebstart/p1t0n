@@ -2,7 +2,7 @@
 
 Власник: data scientist (Крупіца Єгор) — гармонізація MODIS → Suomi NPP.
 
-Працюйте у своїй гілці, у `main` — через Pull Request. Правила: `docs/TEAM_WORKFLOW.md`.
+Працюйте у своїй гілці, у `main` — через Pull Request. Усе про проєкт: `docs/P1T0N.md`.
 
 ## Скрипти
 

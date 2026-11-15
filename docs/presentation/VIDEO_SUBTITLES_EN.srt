@@ -1,0 +1,41 @@
+1
+00:00:00,000 --> 00:00:01,600
+Team P1t0n · Dnipro · Harmonized Fire Calendar
+
+2
+00:00:01,600 --> 00:00:04,200
+MODIS and VIIRS count the same fires differently:
+joined as is, fires "jump" in 2012.
+
+3
+00:00:04,200 --> 00:00:07,000
+We put MODIS on the Suomi NPP VIIRS scale.
+Tested on unseen years: R² 0.95.
+
+4
+00:00:07,000 --> 00:00:10,500
+A burning calendar for any region:
+every month against its historical median.
+
+5
+00:00:10,500 --> 00:00:13,500
+Anomalies stand out.
+Raw and harmonized series side by side.
+
+6
+00:00:13,500 --> 00:00:15,800
+World map of 1° cells, 2000–2025.
+
+7
+00:00:15,800 --> 00:00:20,000
+Ukraine: individual NASA hotspots, ready to download.
+
+8
+00:00:20,000 --> 00:00:25,000
+Fire outlook: where fires are likely in the next 12 months,
+checked on real 2026 fires.
+
+9
+00:00:25,000 --> 00:00:27,700
+Open code · NASA FIRMS data
+For firefighters, early warning and science.
