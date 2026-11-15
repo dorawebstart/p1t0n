@@ -24,6 +24,7 @@ One consistent **burning activity calendar**, November 2000 – October 2026, on
 - **Date range** by month; **CSV and PNG download** of the calendar.
 - **World map** of 1° cells (the harmonization runs on a 0.25° grid; the map sums it into 1° cells), 2000–2025, three layers; click a cell for its numbers.
 - **Ukraine points:** individual MODIS and VIIRS hotspots for the months of 2026, with CSV download.
+- **Fire outlook** (`outlook.html`): for each 1° cell, the probability of an active fire month (≥ 10 harmonized hotspots) for the next 12 months, learned from 2001–2025, with its own validation.
 - **Method and accuracy** published on the page: coefficients, validation on unseen years, limitations.
 
 Not implemented yet: drawing a custom area or typing coordinates (regions are chosen from the list); individual hotspot files for years before 2026; the NOAA-20 continuation after Suomi NPP (the ratio is measured, see below).
@@ -60,6 +61,20 @@ Limitations:
 - Fire size, FRP, scan angle, day/night and clouds are not modelled separately; they are absorbed into `k`.
 - 2026 data are near-real-time and preliminary.
 
+### Fire outlook
+
+A statistical seasonal forecast per 1° cell `c` and calendar month `m`, built from the harmonized series 2001–2025 ([`analysis/forecast.py`](analysis/forecast.py)):
+
+```
+e(c,y,m) = 1 if harmonized hotspots ≥ 10, else 0        w = 0.5^((2025 − y) / h)
+p(c,m)   = (Σ w·e + a·p0(m)) / (Σ w + a)                p0(m): base rate of month m over all cells
+```
+
+- Half-life `h` = 3 years and prior strength `a` = 0.25 were chosen (grid h ∈ {1, 2, 3, 5, 8, ∞} × a ∈ {0.1, 0.25, 0.5, 1, 2}) by forecasting 2016–2020, each year from the years before it.
+- Test on unseen years 2021–2025: AUC 0.951; Brier skill score +0.41 vs persistence (last year's same month) and +0.069 vs climatology (all years weighted equally).
+- Forward test on data that did not exist when the model was fitted: Ukraine, January–October 2026, AUC 0.87.
+- Limits: no weather input, so a dry spell or a wet month cannot be foreseen; the expected hotspot counts are much weaker than the probabilities (Ukraine, March 2026: 6,293 expected vs 1,662 observed).
+
 More detail: [`model/README.md`](model/README.md) (English section "Method"). Team notes in Ukrainian: `docs/MATH.md`, `docs/DEFENSE_PREP.md`.
 
 ## Data
@@ -95,6 +110,7 @@ python model/harmonize.py                                                   # Uk
 python model/harmonize_grid.py --input <grid_monthly world .csv.gz> --tag world   # → model/out/grid_harmonized_world.csv.gz
 python analysis/step1_raw_series.py && python analysis/bridge_noaa20.py && python analysis/validate_harmonization.py && python analysis/build_calendar.py
 python backend/export_static.py --world-grid model/out/grid_harmonized_world.csv.gz --cell-country <cell_country.csv>
+python analysis/forecast.py                                                 # fire outlook → frontend/public/data/outlook/ (reads world_cells, so run after export_static)
 python -m http.server 8000 --directory frontend                             # open http://localhost:8000
 ```
 

@@ -17,6 +17,7 @@
 | 14.11 | Дорофєєв Ростислав | Claude Code | Карта світу (клітинки 1°, шари Harmonized/MODIS/VIIRS, масштаб), 3D-графік Problem, графіки карток Method, перевірка PR №18, оновлення сценарію демо | `frontend/*`, `backend/export_static.py`, `docs/DEMO_SCRIPT.md`, `docs/MATH.md` | так: шапки файлів, розділ «How we built it» на сайті |
 | 14.11 | Дорофєєв Ростислав | Claude Code | Анімації інтерфейсу (nav pill, segmented control, magnetic button, weight wave, scramble), м'які точки карти, оптимізація для телефонів (PR №28–№31) | `frontend/nav-pill.js`, `seg-motion.js`, `hero-motion.js`, `app.js`, `style.css` | так: шапки файлів, Credits на сайті |
 | 15.11 | Дорофєєв Ростислав | Claude Code (із субагентами) | Перевірка сайту, репозиторію й вимог; науковий аудит методу; бриф презентації, підготовка до захисту; виправлення текстів, README англійською, однакове σ у календарях | `docs/PRESENTATION_BRIEF.md`, `docs/DEFENSE_PREP.md`, `docs/SITE_AUDIT.md`, `README.md`, `backend/export_static.py`, `frontend/public/data/calendar/*.json` | так: README «Use of AI», цей журнал |
+| 15.11 | Дорофєєв Ростислав | Claude Code | Модель прогнозу пожеж (Fire outlook), сторінка outlook.html, картка в Method | `analysis/forecast.py`, `frontend/outlook.html`, `frontend/public/data/outlook/` | так: шапка файлів, README |
 |  |  |  |  |  |  |
 
 **Як позначати:**

@@ -1580,6 +1580,21 @@
       validation.data = data;
       validation.redraw = responsiveChart($('chart-valid'), drawValidation);
     });
+    // Fire outlook card: numbers come from outlook/metrics.json (analysis/forecast.py)
+    if (API.getOutlookMetrics) API.getOutlookMetrics().then(function (mt) {
+      var card = $('outlook-card');
+      if (!card || !mt || !mt.test) return;
+      function put(k, v) { var el = card.querySelector('[data-o="' + k + '"]'); if (el) el.textContent = v; }
+      function pc(v, d) { return (v * 100).toFixed(d || 0) + '%'; }
+      put('h', (mt.half_life_years === null ? '∞' : mt.half_life_years) + ' years');
+      put('a', String(mt.prior_strength));
+      put('auc', mt.test.auc.toFixed(2));
+      put('bss_p', pc(mt.test.bss_vs_persistence));
+      put('bss_c', pc(mt.test.bss_vs_climatology, 1));
+      if (mt.ukraine_2026) { put('ua_auc', mt.ukraine_2026.auc.toFixed(2)); put('ua_bss', pc(mt.ukraine_2026.bss_vs_climatology, 1)); }
+      var b = (mt.test.reliability || []).filter(function (r) { return r.bin[0] === 0.5; })[0];
+      if (b) put('rel', pc(b.observed));
+    });
   }
 
   function updateValidationBadge() {
