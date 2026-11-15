@@ -5,7 +5,7 @@
 - що додати після порад ментора;
 - що зробити самому до подання.
 
-Ментор сказав, що прогноз «буде ідеально й більше ніж достатньо». Прогноз уже зроблено й перевірено: сторінка `outlook.html`, розділ 3 нижче.
+Ментор сказав, що прогноз «буде ідеально й більше ніж достатньо». Прогноз уже зроблено, перевірено й злито: розділ **05 Outlook** на головній сторінці (https://dorawebstart.github.io/p1t0n/#outlook), розділ 3 нижче. Сайт тепер одна сторінка: старе `outlook.html` лише перенаправляє на `#outlook`.
 
 ---
 
@@ -41,7 +41,7 @@
 ### Слайд 6 — Fire outlook (новий)
 - **Заголовок:** `Fire outlook: where fires are likely next`
 - **Підзаголовок:** `A forecast for the next 12 months from 25 years of harmonized hotspots`
-- **Головний візуал:** скрін карти з `outlook.html` (місяць August) — світ, клітинки 1°, колір = ймовірність.
+- **Головний візуал:** скрін карти з розділу **05 Outlook** головної сторінки (`#outlook`, місяць August) — світ, клітинки 1°, колір = ймовірність.
 - **Формула** (моноширинним, крупно):
   ```
   p(c, m) = (Σ w·e + a·p₀) / (Σ w + a),   w = 0.5^((2025 − y)/h)
@@ -52,6 +52,7 @@
   - `+41 %` — better than “same as last year”
   - `AUC 0.87` — real fires in Ukraine, Jan–Oct 2026 (forecast made from data to Dec 2025)
 - **Малий візуал справа:** графік надійності зі сторінки (точки на діагоналі): `When we say 50–70 %, fire happened 57 % of the time (forecast 60 %)`.
+- **Нотатка доповідача:** `Why the whole world and Ukraine for the proof? The forecast uses world 1° cells already summed from 515 million hotspots, so the whole planet takes minutes; checking it on 2026 needs individual hotspots, and NASA's 2026 world archive is not out yet — Ukraine 2026 we downloaded via the FIRMS API.`
 
 ### Слайд 7 — Product and impact (об'єднаний 6 + 7)
 - **Заголовок:** `A burning calendar and outlook for any place on Earth`
@@ -67,7 +68,7 @@
 
 | Час | Було | Стало |
 |---|---|---|
-| 0:20–0:25 | Клік на серпень 2008, Download CSV | **Сторінка прогнозу:** карта outlook, перемикання місяця. Субтитр: `And a fire outlook for the next 12 months — tested on real 2026 fires.` |
+| 0:20–0:25 | Клік на серпень 2008, Download CSV | **Прокрутка до розділу 05 Outlook** на тій самій сторінці: карта прогнозу, перемикання місяця. Субтитр: `And a fire outlook for the next 12 months — tested on real 2026 fires.` |
 | 0:25–0:30 | Карта світу + адреса | Кінцевий титр з адресою: `For firefighters, early warning and science. dorawebstart.github.io/p1t0n` |
 
 Решта таймінгу — як у `docs/PRESENTATION_BRIEF.md`. Фінальна тривалість — **≤ 30,0 с**.
@@ -76,7 +77,8 @@
 
 | # | Що | Де | Статус |
 |---|---|---|---|
-| 1 | Подивитися сторінку прогнозу і сказати Claude «злити» — тоді прогноз з'явиться на живому сайті | PR від Claude | ☐ |
+| 1 | ~~Подивитися сторінку прогнозу і злити PR~~ — злито | PR від Claude | ☑ |
+| 1а | Перевірити розділ **05 Outlook** на живому сайті (https://dorawebstart.github.io/p1t0n/#outlook): кнопки місяців, карта, клік на клітинку, графіки — у приватному вікні й з телефона | живий сайт | ☐ |
 | 2 | Передати Василині цей файл: слайди 3–7 і відео | — | ☐ |
 | 3 | Перевірити, що в опублікованих слайдах немає повних скрінів із вкладками (розділ 2.1) | PowerPoint / PDF | ☐ |
 | 4 | Опублікувати слайди (PDF) і відео за посиланням «усі, хто має посилання» — перевірити в приватному вікні | Google Drive / YouTube | ☐ до 20:00 |
@@ -88,7 +90,7 @@
 **Абзац для Detailed Project Description** (вставити після розділу HOW IT WORKS):
 ```
 FIRE OUTLOOK (FORECAST)
-Because the record is one consistent series, we also forecast where fires are likely. For every 1° cell and month we estimate the probability of an active fire month (at least 10 hotspots on the Suomi NPP scale) as a recency-weighted Beta–Bernoulli posterior mean, p = (Σ w·e + a·p0) / (Σ w + a) with year weights w = 0.5^((2025 − y)/h). The half-life h and prior a were chosen on 2016–2020; on unseen years 2021–2025 the outlook reaches ROC AUC 0.95 and is 41 % better (Brier skill) than "same as last year". In a true forward test — forecast from data up to December 2025, compared with real Suomi NPP fires in Ukraine in January–October 2026 — it reaches AUC 0.87. Map: https://dorawebstart.github.io/p1t0n/outlook.html
+Because the record is one consistent series, we also forecast where fires are likely. For every 1° cell and month we estimate the probability of an active fire month (at least 10 hotspots on the Suomi NPP scale) as a recency-weighted Beta–Bernoulli posterior mean, p = (Σ w·e + a·p0) / (Σ w + a) with year weights w = 0.5^((2025 − y)/h). The half-life h and prior a were chosen on 2016–2020; on unseen years 2021–2025 the outlook reaches ROC AUC 0.95 and is 41 % better (Brier skill) than "same as last year". In a true forward test — forecast from data up to December 2025, compared with real Suomi NPP fires in Ukraine in January–October 2026 — it reaches AUC 0.87. Map: https://dorawebstart.github.io/p1t0n/#outlook
 ```
 Числа — з `frontend/public/data/outlook/metrics.json` (перерахунок 15.11, 16:30).
 
