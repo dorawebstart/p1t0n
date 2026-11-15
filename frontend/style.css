@@ -1738,3 +1738,15 @@ body {
 .ol-more[open] > *:not(summary), .ol-more-mini[open] > *:not(summary) { animation: foldIn .45s cubic-bezier(.16, 1, .3, 1); }
 @keyframes foldIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .ol-more[open] > *, .ol-more-mini[open] > * { animation: none; } }
+
+/* Month bar above the map */
+.map-month { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; }
+.mm-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border-subtle); background: rgba(255,255,255,.04); color: var(--text-primary); font-size: 1.3rem; line-height: 1; cursor: pointer; transition: background .2s, border-color .2s, transform .15s; }
+.mm-btn:hover:not(:disabled) { background: rgba(255,94,43,.15); border-color: var(--ember-primary); }
+.mm-btn:active:not(:disabled) { transform: scale(.92); }
+.mm-btn:disabled { opacity: .35; cursor: default; }
+.mm-input { width: 96px; height: 36px; text-align: center; font-family: var(--font-mono); font-size: .95rem; color: var(--ember-secondary); background: rgba(255,255,255,.04); border: 1px solid var(--border-subtle); border-radius: 10px; }
+.mm-input:focus { outline: none; border-color: var(--ember-primary); }
+.mm-range { flex: 1 1 220px; accent-color: var(--ember-primary); cursor: pointer; }
+.mm-ends { font-family: var(--font-mono); font-size: .75rem; color: var(--text-muted); }
+@media (max-width: 600px) { .mm-range { flex-basis: 100%; order: 5; } }

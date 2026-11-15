@@ -234,6 +234,7 @@
     safe(initSpotlightCards);
     safe(initScrollSpy);
     safe(initMap);
+    safe(initMonthBar);
     bindEvents();
     loadAll();
   });
@@ -556,6 +557,78 @@
     cell.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(e); }
     });
+  }
+
+  // Month bar above the map: the months the current map layer has (world cells or Ukraine points).
+  function mapMonths() {
+    var w = state.layerPref === 'world' ? state.worldMonths : state.fireMonths;
+    return Array.isArray(w) ? w : [];
+  }
+  function syncMonthBar() {
+    var list = mapMonths(), key = state.selected;
+    var inp = $('mm-input'), rng = $('mm-range');
+    if (!inp || !rng) return;
+    if (document.activeElement !== inp) inp.value = key || '';
+    rng.max = Math.max(0, list.length - 1);
+    var i = list.indexOf(key);
+    if (i >= 0) rng.value = i;
+    $('mm-prev').disabled = i <= 0;
+    $('mm-next').disabled = i < 0 || i >= list.length - 1;
+    setText('mm-ends', list.length ? list[0] + ' … ' + list[list.length - 1] : '');
+  }
+  function goToMonth(key) {
+    var list = mapMonths();
+    if (!key || !list.length) return;
+    if (list.indexOf(key) < 0) {            // snap to the nearest month the layer has
+      key = key < list[0] ? list[0] : (key > list[list.length - 1] ? list[list.length - 1] : list.filter(function (k) { return k <= key; }).pop());
+    }
+    if (key === state.selected) { syncMonthBar(); return; }
+    // widen the calendar range if the month is outside it, so the heat map shows the selection too
+    if ((state.from && key < state.from) || (state.to && key > state.to)) {
+      if (state.from && key < state.from) state.from = key;
+      if (state.to && key > state.to) state.to = key;
+      if ($('month-from')) $('month-from').value = state.from || '';
+      if ($('month-to')) $('month-to').value = state.to || '';
+      state.selected = key;
+      renderCalendar();
+    }
+    selectMonth(key);
+  }
+  function initMonthBar() {
+    var inp = $('mm-input');
+    if (!inp) return;
+    function step(d) {
+      var list = mapMonths(), i = list.indexOf(state.selected);
+      if (i < 0) return;
+      goToMonth(list[Math.max(0, Math.min(list.length - 1, i + d))]);
+    }
+    $('mm-prev').addEventListener('click', function () { step(-1); });
+    $('mm-next').addEventListener('click', function () { step(1); });
+    var rt = 0;
+    $('mm-range').addEventListener('input', function () {
+      var list = mapMonths(), k = list[+this.value];
+      if (!k) return;
+      inp.value = k;
+      clearTimeout(rt);
+      rt = setTimeout(function () { goToMonth(k); }, 120);   // smooth while dragging
+    });
+    function commit() {
+      var m = /^\s*(\d{4})\s*(?:[-.,/\s]\s*(\d{1,2})|(\d{2}))?\s*$/.exec(inp.value);
+      if (!m) { syncMonthBar(); return; }
+      var n = parseInt(m[2] || m[3] || '1', 10);
+      if (n < 1 || n > 12) { syncMonthBar(); return; }
+      goToMonth(m[1] + '-' + (n < 10 ? '0' : '') + n);
+    }
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); commit(); inp.blur(); } });
+    inp.addEventListener('change', commit);
+    inp.addEventListener('input', function () { var v = inp.value.replace(/[^\d\-.,/ ]/g, ''); if (v !== inp.value) inp.value = v; });
+    // keyboard: arrow keys on the map card step months
+    $('map-month').addEventListener('keydown', function (e) {
+      if (e.target === inp) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
+    });
+    syncMonthBar();
   }
 
   function selectMonth(key) {
@@ -1034,6 +1107,7 @@
     setLayerButtons(layer);
     if (layer === 'world') loadCells(key);
     else loadPoints(key);
+    syncMonthBar();
   }
 
   function clearCells() {
