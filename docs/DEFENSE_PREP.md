@@ -44,7 +44,7 @@
 | 1:20–2:20 | Слайд 4 + сайт **Method** | «Coefficient for each month: total VIIRS divided by total MODIS on the training years. This ratio of sums is the maximum-likelihood estimate for Poisson counts. Terra and Aqua get their own coefficients because they pass at 10:30 and 13:30 local time; we average the two translated estimates with weights proportional to their counts. For the world — per 10-degree latitude band, because orbit geometry changes with latitude.» | Показує формулу й графік k за місяцями |
 | 2:20–3:00 | Слайд 5 + картка **Validation** | «Test on 60 months the model never saw: R² 0.95 for Ukraine, 0.86 for the world; raw MODIS — 0.16. Bias +3.7 %, and we can tell you where it comes from.» | Перемикає Ukraine / World у Validation |
 | 3:00–4:00 | Сайт **Calendar** | «The product: a burning calendar. Rows — years, columns — months, colour — hotspots on the VIIRS scale. Ukraine: August 2008 is 3.6 standard deviations above the August median. Switch to raw MODIS — the whole series is three times lower; raw VIIRS — empty before 2012; harmonized — one continuous series. CSV and PNG downloads, as the challenge asks.» | Region → Ukraine; клік на серпень 2008; Harmonized → MODIS → VIIRS → Harmonized; Anomalies only; Download CSV |
-| 4:00–4:20 | Сайт **05 Outlook** (розділ головної сторінки, `#outlook`) | «One step further: a fire outlook. For every 1° cell and month — the probability of at least 10 hotspots, from 25 years of harmonized data, recent years weigh more. Tested on 2021–2025, never used for tuning: AUC 0.95. And on real 2026 fires in Ukraine, data that did not exist when we fitted it: AUC 0.87. It does not see weather — that is the next step.» | Вкладка **05 Outlook** (або кнопка **Fire outlook** у Home) — прокрутка до розділу на тій самій сторінці; клік на місяць (серпень); прокрутити до графіка «Ukraine 2026 — forecast vs reality» |
+| 4:00–4:20 | Сайт **06 Outlook** (розділ головної сторінки, `#outlook`) | «One step further: a fire outlook. For every 1° cell and month — the probability of at least 10 hotspots, from 25 years of harmonized data, recent years weigh more. Tested on 2021–2025, never used for tuning: AUC 0.95. And on real 2026 fires in Ukraine, data that did not exist when we fitted it: AUC 0.87. It does not see weather — that is the next step.» | Вкладка **06 Outlook** (або кнопка **Fire outlook** у Home) — прокрутка до розділу на тій самій сторінці; клік на місяць (серпень); прокрутити до графіка «Ukraine 2026 — forecast vs reality» |
 | 4:20–4:40 | Сайт **Map** (коротко) | «The same series on a world map of 1° cells.» | World cells, наблизити Африку, клік на клітинку |
 | 4:40–5:00 | Слайд 7 | «Who needs it: early-warning services, firefighters, researchers. Open code, NASA FIRMS data. Thank you.» | — |
 
@@ -262,7 +262,7 @@ R²   = 1 − Σ (a − p)² / Σ (a − ā)²      (коефіцієнт дет
 
 ### 5.8 Прогноз пожеж (Fire outlook)
 
-Розділ **05 Outlook** головної сторінки (https://dorawebstart.github.io/p1t0n/#outlook; старе `outlook.html` лише перенаправляє туди), код — `analysis/forecast.py`, числа — `frontend/public/data/outlook/metrics.json` (якщо файл перерахують, числа нижче беріть звідти).
+Розділ **06 Outlook** головної сторінки (https://dorawebstart.github.io/p1t0n/#outlook; старе `outlook.html` лише перенаправляє туди), код — `analysis/forecast.py`, числа — `frontend/public/data/outlook/metrics.json` (якщо файл перерахують, числа нижче беріть звідти).
 
 **Що прогнозуємо.** Для кожної клітинки 1° і кожного місяця 2026 року — імовірність «активного пожежного місяця»: щонайменше T = 10 гармонізованих точок (шкала Suomi NPP). Плюс очікувана кількість точок. Це сезонний статистичний прогноз з історії, а не прогноз погоди.
 
@@ -424,7 +424,7 @@ Reliability: прогнози групуємо за p (0–5 %, 5–10 %, …, 9
 34. **Ви ж казали, що точок світу забагато, — як тоді прогноз для всієї планети?** Забагато саме окремих точок (файли точок, карта 0,25°). Прогноз рахується з уже підсумованих клітинок 1° (≈ 16 400 × 300 місяців із 515 млн точок) — це хвилини. Точки потрібні лише для перевірки на 2026 році, а вони є тільки для України: річного архіву світу за 2026 NASA ще не випустила, Україну ми взяли через FIRMS API. Тому прогноз — для світу, а чесний тест уперед — на Україні.
 
 Ще кілька коротких:
-- **Це прогноз?** Календар — ні: діапазон 25–75 % — статистика минулих років. Прогноз — окремий розділ **05 Outlook** на тій самій сторінці (розділ 5.8).
+- **Це прогноз?** Календар — ні: діапазон 25–75 % — статистика минулих років. Прогноз — окремий розділ **06 Outlook** на тій самій сторінці (розділ 5.8).
 - **Чому саме Україна?** Ми звідси; продукт працює для всього світу, Україна — детальний приклад із точками й областями.
 - **Що далі?** Нормування на дні спостережень; робастні аномалії; FRP; місток NOAA-20 / NOAA-21; довільна зона на карті; перевірка назад; прогноз із погодою (індекс пожежної небезпеки) і регіональною базовою частотою, оцінений тим самим Brier на тих самих роках.
 
@@ -436,7 +436,7 @@ Reliability: прогнози групуємо за p (0–5 %, 5–10 %, …, 9
 - [ ] Іван пояснює z на прикладі серпня 2008 з числами.
 - [ ] Обидва знають напам'ять: 0,95 / 0,86 / 0,16 / +3,7 % / −0,7 % без збоїв SNPP / 1,007 / ×3–3,7 / ×4,2–4,9.
 - [ ] Коля проходить демо сайту за 2 хвилини без пауз, двічі.
-- [ ] Іван виводить p(c,m) як апостеріорне середнє Beta–Bernoulli (4 рядки) і пояснює Brier / BSS / AUC; Коля показує розділ **05 Outlook** за 20 с.
+- [ ] Іван виводить p(c,m) як апостеріорне середнє Beta–Bernoulli (4 рядки) і пояснює Brier / BSS / AUC; Коля показує розділ **06 Outlook** за 20 с.
 - [ ] Прогін 5 хвилин із таймером — тричі; останній — у Zoom з демонстрацією екрана.
 - [ ] Один із команди грає журі й ставить 5 випадкових питань з розділу 9.
 - [ ] Запасний план: якщо сайт не вантажиться — скріни в слайдах; інтернет — роздача з телефона.

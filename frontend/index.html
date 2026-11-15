@@ -42,8 +42,8 @@
           <a href="#problem" class="nav-tab" data-target="problem"><span class="tab-num">02</span> Problem</a>
           <a href="#method" class="nav-tab" data-target="method"><span class="tab-num">03</span> Method</a>
           <a href="#calendar" class="nav-tab" data-target="calendar"><span class="tab-num">04</span> Calendar</a>
-          <a href="#outlook" class="nav-tab" data-target="outlook"><span class="tab-num">05</span> Outlook</a>
-          <a href="#map-section" class="nav-tab" data-target="map-section"><span class="tab-num">06</span> Map</a>
+          <a href="#map-section" class="nav-tab" data-target="map-section"><span class="tab-num">05</span> Map</a>
+          <a href="#outlook" class="nav-tab" data-target="outlook"><span class="tab-num">06</span> Outlook</a>
           <a href="#about" class="nav-tab" data-target="about"><span class="tab-num">07</span> About</a>
         </nav>
 
@@ -510,12 +510,95 @@
     </section>
 
 
-    <!-- 6. FIRE OUTLOOK (forecast) -->
+    <!-- 6. MAP -->
+    <section id="map-section" class="site-section section-auto">
+      <div class="container">
+        <div class="workspace-top-bar">
+          <div>
+            <div class="eyebrow">06 • Map</div>
+            <h2 class="page-heading">Fire activity of the selected month</h2>
+          </div>
+        </div>
+
+        <div class="map-card glass-panel">
+          <div class="card-header">
+            <div class="card-title-block">
+              <h3 id="map-title">World cells</h3>
+              <p class="card-desc" id="map-status">Select a month in the calendar.</p>
+            </div>
+            <div class="map-tools">
+              <div class="control-group">
+                <div class="segmented-control" id="layer-toggle" role="group" aria-label="Map layer">
+                  <button type="button" class="seg-btn active" data-layer="world" data-cap="Hotspots per 1° cell, whole world, 2000–2025." aria-pressed="true" title="Harmonized hotspot counts per 1° cell, whole world, 2000–2025">World cells (1°)</button>
+                  <button type="button" class="seg-btn" data-layer="ukraine" data-cap="Single hotspots in Ukraine, 2026 (preliminary)." aria-pressed="false" title="Individual MODIS and VIIRS hotspots in Ukraine">Ukraine points</button>
+                </div>
+                <span class="helper">What the map draws.</span>
+              </div>
+              <div class="control-group" id="cells-tools">
+                <div class="segmented-control" id="cells-series-toggle" role="group" aria-label="Which counts the world cells show">
+                  <button type="button" class="seg-btn active" data-series="harmonized" data-cap="One series 2000–2025 on the Suomi NPP scale (same switch as the calendar)." aria-pressed="true" title="MODIS translated to the Suomi NPP scale (2000–2012), real Suomi NPP after">Harmonized</button>
+                  <button type="button" class="seg-btn" data-series="modis" data-cap="Raw MODIS (Terra + Aqua): fewer hotspots, from 2000." aria-pressed="false" title="Raw MODIS hotspots, Terra + Aqua">MODIS</button>
+                  <button type="button" class="seg-btn" data-series="viirs" data-cap="Raw VIIRS Suomi NPP: from 2012 only." aria-pressed="false" title="Raw VIIRS hotspots, Suomi NPP (from 2012)">VIIRS (SNPP)</button>
+                </div>
+                <span class="helper">Which counts colour the cells (same switch as the calendar).</span>
+              </div>
+              <div class="control-group" id="points-tools">
+                <div class="map-tools-row">
+                  <div class="segmented-control" id="points-toggle" role="group" aria-label="Which hotspots to show">
+                    <button type="button" class="seg-btn active" data-points="all" title="Show MODIS and VIIRS hotspots">All</button>
+                    <button type="button" class="seg-btn" data-points="MODIS" title="Show MODIS hotspots only">MODIS</button>
+                    <button type="button" class="seg-btn" data-points="VIIRS" title="Show VIIRS hotspots only">VIIRS</button>
+                  </div>
+                  <button type="button" id="btn-points-csv" class="btn btn-outline btn-csv" title="Download the hotspots shown on the map as CSV">Download points CSV</button>
+                </div>
+                <span class="helper">Ukraine points only: sensor filter and CSV.</span>
+              </div>
+            </div>
+          </div>
+          <p class="helper helper-block">Pick a month here (‹ ›, type it or slide), or switch to <strong>Period</strong> to sum several months (up to 5 years). Click a cell for its numbers.</p>
+          <p class="map-note" id="map-note" role="status" hidden></p>
+
+          <div class="map-month" id="map-month" role="group" aria-label="Month shown on the map">
+            <div class="segmented-control mm-mode" id="mm-mode" role="group" aria-label="One month or a period">
+              <button type="button" class="seg-btn active" data-mode="month" aria-pressed="true" title="Show one month">Month</button>
+              <button type="button" class="seg-btn" data-mode="range" aria-pressed="false" title="Sum hotspots over a period">Period</button>
+            </div>
+            <button type="button" class="mm-btn" id="mm-prev" title="Previous month" aria-label="Previous month">‹</button>
+            <input type="text" id="mm-input" class="mm-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Month, for example 2008-08" title="Type a month, e.g. 2008-8, and press Enter" />
+            <span class="mm-range-only" id="mm-dash">—</span>
+            <input type="text" id="mm-input-to" class="mm-input mm-range-only" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Last month of the period, for example 2008-10" title="Last month of the period (Enter to apply)" />
+            <button type="button" class="mm-btn" id="mm-next" title="Next month" aria-label="Next month">›</button>
+            <button type="button" class="mm-chip mm-range-only" id="mm-year" title="Whole calendar year of the first month">Whole year</button>
+            <input type="range" id="mm-range" class="mm-range" min="0" max="0" step="1" value="0" aria-label="Slide through months" />
+            <span class="mm-ends" id="mm-ends"></span>
+          </div>
+
+          <div id="map-block" class="map-wrapper">
+            <div id="map"></div>
+            <div class="map-legend map-legend-cells" id="legend-cells" hidden>
+              <div class="legend-title" id="cells-legend-title">Harmonized hotspots per 1° cell</div>
+              <div class="cells-gradient" id="cells-gradient"></div>
+              <div class="cells-ticks" id="cells-ticks"></div>
+              <div class="legend-sub" id="cells-sub">Log scale</div>
+            </div>
+            <div class="map-legend" id="legend-points">
+              <div class="legend-title">Fire radiative power (FRP)</div>
+              <div class="legend-item"><span class="dot low"></span> &lt; 25 MW</div>
+              <div class="legend-item"><span class="dot med"></span> 25–80 MW</div>
+              <div class="legend-item"><span class="dot high"></span> &gt; 80 MW</div>
+            </div>
+          </div>
+          <p id="map-unavailable" class="empty-state" hidden>The map library could not be loaded, so the map is hidden. The calendar and downloads still work.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. FIRE OUTLOOK (forecast) -->
     <section id="outlook" class="site-section section-auto">
       <div class="container">
 
         <div class="workspace-top-bar"><div>
-      <div class="eyebrow">06 • Fire outlook</div>
+      <div class="eyebrow">07 • Fire outlook</div>
       <h2 class="page-heading">Where fires are likely in <span class="text-ember" id="ol-month-title">the next months</span></h2>
     </div></div>
     <p class="ol-lead reveal">Probability of an <strong>active fire month</strong> (≥ 10 hotspots per 1° cell) for the next 12 months, learned from 25 years of harmonized NASA data — and tested on years the model never saw.</p>
@@ -593,83 +676,7 @@ E(c,m)   = Σ w·H / Σ w</div>
       </div>
     </section>
 
-    <!-- 7. MAP (secondary) -->
-    <section id="map-section" class="site-section section-auto">
-      <div class="container">
-        <div class="workspace-top-bar">
-          <div>
-            <div class="eyebrow">07 • Map</div>
-            <h2 class="page-heading">Fire activity of the selected month</h2>
-          </div>
-        </div>
-
-        <div class="map-card glass-panel">
-          <div class="card-header">
-            <div class="card-title-block">
-              <h3 id="map-title">World cells</h3>
-              <p class="card-desc" id="map-status">Select a month in the calendar.</p>
-            </div>
-            <div class="map-tools">
-              <div class="control-group">
-                <div class="segmented-control" id="layer-toggle" role="group" aria-label="Map layer">
-                  <button type="button" class="seg-btn active" data-layer="world" data-cap="Hotspots per 1° cell, whole world, 2000–2025." aria-pressed="true" title="Harmonized hotspot counts per 1° cell, whole world, 2000–2025">World cells (1°)</button>
-                  <button type="button" class="seg-btn" data-layer="ukraine" data-cap="Single hotspots in Ukraine, 2026 (preliminary)." aria-pressed="false" title="Individual MODIS and VIIRS hotspots in Ukraine">Ukraine points</button>
-                </div>
-                <span class="helper">What the map draws.</span>
-              </div>
-              <div class="control-group" id="cells-tools">
-                <div class="segmented-control" id="cells-series-toggle" role="group" aria-label="Which counts the world cells show">
-                  <button type="button" class="seg-btn active" data-series="harmonized" data-cap="One series 2000–2025 on the Suomi NPP scale (same switch as the calendar)." aria-pressed="true" title="MODIS translated to the Suomi NPP scale (2000–2012), real Suomi NPP after">Harmonized</button>
-                  <button type="button" class="seg-btn" data-series="modis" data-cap="Raw MODIS (Terra + Aqua): fewer hotspots, from 2000." aria-pressed="false" title="Raw MODIS hotspots, Terra + Aqua">MODIS</button>
-                  <button type="button" class="seg-btn" data-series="viirs" data-cap="Raw VIIRS Suomi NPP: from 2012 only." aria-pressed="false" title="Raw VIIRS hotspots, Suomi NPP (from 2012)">VIIRS (SNPP)</button>
-                </div>
-                <span class="helper">Which counts colour the cells (same switch as the calendar).</span>
-              </div>
-              <div class="control-group" id="points-tools">
-                <div class="map-tools-row">
-                  <div class="segmented-control" id="points-toggle" role="group" aria-label="Which hotspots to show">
-                    <button type="button" class="seg-btn active" data-points="all" title="Show MODIS and VIIRS hotspots">All</button>
-                    <button type="button" class="seg-btn" data-points="MODIS" title="Show MODIS hotspots only">MODIS</button>
-                    <button type="button" class="seg-btn" data-points="VIIRS" title="Show VIIRS hotspots only">VIIRS</button>
-                  </div>
-                  <button type="button" id="btn-points-csv" class="btn btn-outline btn-csv" title="Download the hotspots shown on the map as CSV">Download points CSV</button>
-                </div>
-                <span class="helper">Ukraine points only: sensor filter and CSV.</span>
-              </div>
-            </div>
-          </div>
-          <p class="helper helper-block">Pick a month right here (‹ ›, type it or slide) — the calendar follows. Click a cell or point for its numbers.</p>
-          <p class="map-note" id="map-note" role="status" hidden></p>
-
-          <div class="map-month" id="map-month" role="group" aria-label="Month shown on the map">
-            <button type="button" class="mm-btn" id="mm-prev" title="Previous month" aria-label="Previous month">‹</button>
-            <input type="text" id="mm-input" class="mm-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Month, for example 2008-08" title="Type a month, e.g. 2008-8, and press Enter" />
-            <button type="button" class="mm-btn" id="mm-next" title="Next month" aria-label="Next month">›</button>
-            <input type="range" id="mm-range" class="mm-range" min="0" max="0" step="1" value="0" aria-label="Slide through months" />
-            <span class="mm-ends" id="mm-ends"></span>
-          </div>
-
-          <div id="map-block" class="map-wrapper">
-            <div id="map"></div>
-            <div class="map-legend map-legend-cells" id="legend-cells" hidden>
-              <div class="legend-title" id="cells-legend-title">Harmonized hotspots per 1° cell</div>
-              <div class="cells-gradient" id="cells-gradient"></div>
-              <div class="cells-ticks" id="cells-ticks"></div>
-              <div class="legend-sub" id="cells-sub">Log scale</div>
-            </div>
-            <div class="map-legend" id="legend-points">
-              <div class="legend-title">Fire radiative power (FRP)</div>
-              <div class="legend-item"><span class="dot low"></span> &lt; 25 MW</div>
-              <div class="legend-item"><span class="dot med"></span> 25–80 MW</div>
-              <div class="legend-item"><span class="dot high"></span> &gt; 80 MW</div>
-            </div>
-          </div>
-          <p id="map-unavailable" class="empty-state" hidden>The map library could not be loaded, so the map is hidden. The calendar and downloads still work.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 7. HOW WE BUILT IT -->
+    <!-- 8. HOW WE BUILT IT -->
     <section id="about" class="site-section section-auto">
       <div class="container">
         <div class="workspace-top-bar">

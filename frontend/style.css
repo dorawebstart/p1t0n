@@ -1750,3 +1750,11 @@ body {
 .mm-range { flex: 1 1 220px; accent-color: var(--ember-primary); cursor: pointer; }
 .mm-ends { font-family: var(--font-mono); font-size: .75rem; color: var(--text-muted); }
 @media (max-width: 600px) { .mm-range { flex-basis: 100%; order: 5; } }
+
+/* Period mode in the month bar */
+.mm-mode { margin-right: 4px; }
+.map-month .mm-range-only { display: none; }
+.map-month.is-period .mm-range-only { display: inline-flex; align-items: center; }
+.mm-chip { height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid rgba(255,158,68,.35); background: transparent; color: var(--ember-secondary); font-family: var(--font-mono); font-size: .8rem; cursor: pointer; transition: background .2s; }
+.mm-chip:hover { background: rgba(255,94,43,.12); }
+#mm-dash { color: var(--text-muted); }
