@@ -1,4 +1,5 @@
 // Hero motion: three small effects on the first screen, rebuilt in plain JS (no dependencies)
+// Written with AI assistance (Claude Code) from the team's brief; reviewed and tested by Team P1t0n.
 // from the designbookmark.com/motion studies, in the site's colours and fonts.
 //  1. Magnetic button  — "Open the burning calendar" leans toward a nearby cursor, its label leans
 //     further, both spring home. Springs: button 170 13, label 220 15, press/scale 400 18.

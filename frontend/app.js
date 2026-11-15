@@ -197,6 +197,7 @@
       if (a >= 1e4) return Math.round(v / 1e3) + 'k';
       return fmtInt(v);
     }
+    var lastLab = null;
     PALETTE.forEach(function (c, i) {
       var item = document.createElement('div');
       item.className = 'legend-step';
@@ -205,7 +206,11 @@
       sw.style.background = c;
       var lab = document.createElement('span');
       lab.className = 'legend-num';
-      lab.textContent = i % 2 === 0 ? short(scale.edges[i]) : '';
+      // skip a label equal to the previous one (tiny regions: 0 0 1 1 …)
+      var txt = i % 2 === 0 ? short(scale.edges[i]) : '';
+      if (txt && txt === lastLab) txt = '';
+      if (txt) lastLab = txt;
+      lab.textContent = txt;
       item.appendChild(sw);
       item.appendChild(lab);
       item.title = fmtInt(scale.edges[i]) + ' – ' + fmtInt(scale.edges[i + 1]) + ' hotspots';
@@ -874,7 +879,7 @@
     new ZoomInfo().addTo(map);
     map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
     canvasRenderer = L.canvas({ padding: 0.5 });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
       className: 'dark-map-tiles'
@@ -955,7 +960,8 @@
     var line3 = document.createElement('div');
     line3.className = 'popup-sub';
     line3.textContent = SERIES[state.cells.series].short +
-      (row && row.length >= 5 ? ' · harmonized ' + fmtInt(row[2]) + ', MODIS ' + fmtInt(row[3]) + ', VIIRS ' + fmtInt(row[4]) : '');
+      (row && row.length >= 5 ? ' · harmonized ' + fmtInt(row[2]) + ', MODIS ' + fmtInt(row[3]) + ', VIIRS ' +
+        (state.cells.month < '2012-02' ? 'n/a (Suomi NPP from 2012)' : fmtInt(row[4])) : '');
     box.appendChild(line1); box.appendChild(line2); box.appendChild(line3);
     L.popup().setLatLng(e.latlng).setContent(box).openOn(map);
   }

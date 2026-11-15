@@ -1,4 +1,5 @@
 // Navigation "tab pill": one ember pill slides under the active section tab.
+// Written with AI assistance (Claude Code) from the team's brief; reviewed and tested by Team P1t0n.
 // Two springs, one per edge. The edge in the direction of travel is stiff, the other is soft,
 // so the pill stretches toward the new tab and then pulls its tail in.
 // Rebuilt from the "Tab pill" motion study (designbookmark.com/motion#db-tab-pill), plain JS, no dependencies.
