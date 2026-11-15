@@ -1,0 +1,384 @@
+{
+ "threshold": 10.0,
+ "cell_deg": 1,
+ "half_life_years": 3,
+ "prior_strength": 0.25,
+ "train": "2001-2025 (each forecast uses only earlier years)",
+ "choice_years": "2016-2020",
+ "test_years": "2021-2025",
+ "choice_grid": [
+  {
+   "half_life": 1,
+   "prior": 0.1,
+   "brier": 0.08513
+  },
+  {
+   "half_life": 1,
+   "prior": 0.25,
+   "brier": 0.08396
+  },
+  {
+   "half_life": 1,
+   "prior": 0.5,
+   "brier": 0.08449
+  },
+  {
+   "half_life": 1,
+   "prior": 1,
+   "brier": 0.09003
+  },
+  {
+   "half_life": 1,
+   "prior": 2,
+   "brier": 0.10495
+  },
+  {
+   "half_life": 2,
+   "prior": 0.1,
+   "brier": 0.07735
+  },
+  {
+   "half_life": 2,
+   "prior": 0.25,
+   "brier": 0.07708
+  },
+  {
+   "half_life": 2,
+   "prior": 0.5,
+   "brier": 0.07754
+  },
+  {
+   "half_life": 2,
+   "prior": 1,
+   "brier": 0.0806
+  },
+  {
+   "half_life": 2,
+   "prior": 2,
+   "brier": 0.09009
+  },
+  {
+   "half_life": 3,
+   "prior": 0.1,
+   "brier": 0.07558
+  },
+  {
+   "half_life": 3,
+   "prior": 0.25,
+   "brier": 0.0755
+  },
+  {
+   "half_life": 3,
+   "prior": 0.5,
+   "brier": 0.07584
+  },
+  {
+   "half_life": 3,
+   "prior": 1,
+   "brier": 0.07781
+  },
+  {
+   "half_life": 3,
+   "prior": 2,
+   "brier": 0.08432
+  },
+  {
+   "half_life": 5,
+   "prior": 0.1,
+   "brier": 0.07555
+  },
+  {
+   "half_life": 5,
+   "prior": 0.25,
+   "brier": 0.07554
+  },
+  {
+   "half_life": 5,
+   "prior": 0.5,
+   "brier": 0.07575
+  },
+  {
+   "half_life": 5,
+   "prior": 1,
+   "brier": 0.07684
+  },
+  {
+   "half_life": 5,
+   "prior": 2,
+   "brier": 0.0807
+  },
+  {
+   "half_life": 8,
+   "prior": 0.1,
+   "brier": 0.07652
+  },
+  {
+   "half_life": 8,
+   "prior": 0.25,
+   "brier": 0.07651
+  },
+  {
+   "half_life": 8,
+   "prior": 0.5,
+   "brier": 0.07663
+  },
+  {
+   "half_life": 8,
+   "prior": 1,
+   "brier": 0.07729
+  },
+  {
+   "half_life": 8,
+   "prior": 2,
+   "brier": 0.07978
+  },
+  {
+   "half_life": null,
+   "prior": 0.1,
+   "brier": 0.0802
+  },
+  {
+   "half_life": null,
+   "prior": 0.25,
+   "brier": 0.08018
+  },
+  {
+   "half_life": null,
+   "prior": 0.5,
+   "brier": 0.08018
+  },
+  {
+   "half_life": null,
+   "prior": 1,
+   "brier": 0.08032
+  },
+  {
+   "half_life": null,
+   "prior": 2,
+   "brier": 0.08109
+  }
+ ],
+ "test": {
+  "brier": 0.0727,
+  "brier_climatology": 0.0781,
+  "brier_persistence": 0.1231,
+  "bss_vs_climatology": 0.069,
+  "bss_vs_persistence": 0.41,
+  "auc": 0.951,
+  "auc_climatology": 0.946,
+  "event_rate": 0.269,
+  "n": 959592,
+  "reliability": [
+   {
+    "bin": [
+     0,
+     0.05
+    ],
+    "n": 502913,
+    "forecast": 0.015,
+    "observed": 0.016
+   },
+   {
+    "bin": [
+     0.05,
+     0.1
+    ],
+    "n": 41844,
+    "forecast": 0.073,
+    "observed": 0.101
+   },
+   {
+    "bin": [
+     0.1,
+     0.2
+    ],
+    "n": 57888,
+    "forecast": 0.148,
+    "observed": 0.152
+   },
+   {
+    "bin": [
+     0.2,
+     0.3
+    ],
+    "n": 48537,
+    "forecast": 0.245,
+    "observed": 0.228
+   },
+   {
+    "bin": [
+     0.3,
+     0.5
+    ],
+    "n": 65105,
+    "forecast": 0.395,
+    "observed": 0.364
+   },
+   {
+    "bin": [
+     0.5,
+     0.7
+    ],
+    "n": 53070,
+    "forecast": 0.599,
+    "observed": 0.57
+   },
+   {
+    "bin": [
+     0.7,
+     0.9
+    ],
+    "n": 58370,
+    "forecast": 0.802,
+    "observed": 0.781
+   },
+   {
+    "bin": [
+     0.9,
+     1
+    ],
+    "n": 131865,
+    "forecast": 0.956,
+    "observed": 0.963
+   }
+  ]
+ },
+ "ukraine_2026": {
+  "cells": 53,
+  "months": "2026-01..2026-10",
+  "n": 530,
+  "event_rate": 0.534,
+  "brier": 0.1505,
+  "brier_climatology": 0.1726,
+  "bss_vs_climatology": 0.128,
+  "auc": 0.866,
+  "reliability": [
+   {
+    "bin": [
+     0,
+     0.05
+    ],
+    "n": 53,
+    "forecast": 0.018,
+    "observed": 0.0
+   },
+   {
+    "bin": [
+     0.05,
+     0.1
+    ],
+    "n": 24,
+    "forecast": 0.081,
+    "observed": 0.042
+   },
+   {
+    "bin": [
+     0.1,
+     0.2
+    ],
+    "n": 34,
+    "forecast": 0.15,
+    "observed": 0.294
+   },
+   {
+    "bin": [
+     0.2,
+     0.3
+    ],
+    "n": 35,
+    "forecast": 0.258,
+    "observed": 0.229
+   },
+   {
+    "bin": [
+     0.3,
+     0.5
+    ],
+    "n": 55,
+    "forecast": 0.393,
+    "observed": 0.236
+   },
+   {
+    "bin": [
+     0.5,
+     0.7
+    ],
+    "n": 79,
+    "forecast": 0.617,
+    "observed": 0.544
+   },
+   {
+    "bin": [
+     0.7,
+     0.9
+    ],
+    "n": 130,
+    "forecast": 0.811,
+    "observed": 0.754
+   },
+   {
+    "bin": [
+     0.9,
+     1
+    ],
+    "n": 120,
+    "forecast": 0.95,
+    "observed": 0.917
+   }
+  ],
+  "monthly": [
+   {
+    "month": 1,
+    "expected": 77,
+    "observed": 12
+   },
+   {
+    "month": 2,
+    "expected": 758,
+    "observed": 26
+   },
+   {
+    "month": 3,
+    "expected": 6293,
+    "observed": 1662
+   },
+   {
+    "month": 4,
+    "expected": 4834,
+    "observed": 975
+   },
+   {
+    "month": 5,
+    "expected": 1431,
+    "observed": 1769
+   },
+   {
+    "month": 6,
+    "expected": 1695,
+    "observed": 4190
+   },
+   {
+    "month": 7,
+    "expected": 8569,
+    "observed": 7123
+   },
+   {
+    "month": 8,
+    "expected": 11106,
+    "observed": 23387
+   },
+   {
+    "month": 9,
+    "expected": 6063,
+    "observed": 6613
+   },
+   {
+    "month": 10,
+    "expected": 3617,
+    "observed": 1412
+   }
+  ]
+ },
+ "definition": "p = probability that a 1-degree cell has at least 10 harmonized (Suomi NPP scale) hotspots in the month; recency-weighted climatology with a beta prior; expected = recency-weighted mean.",
+ "notes": "Statistical seasonal outlook from 25 years of satellite hotspots \u2014 where and when fires usually happen and how that is changing. It does not use weather forecasts, so it cannot see a dry spell or a wet month coming; adding a fire-weather index is the next step."
+}

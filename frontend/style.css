@@ -1676,3 +1676,12 @@ body {
 .checkbox-pill { min-height: 32px; }
 .checkbox-pill input[type="checkbox"] { width: 18px; height: 18px; }
 .raw-download, .text-link { display: inline-block; padding: 4px 0; min-height: 24px; }
+
+/* Fire outlook card in Method */
+.outlook-card { margin-top: 20px; }
+.outlook-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; margin-top: 8px; }
+@media (max-width: 960px) { .outlook-body { grid-template-columns: 1fr; } }
+.outlook-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 8px 0 14px; }
+.outlook-kpis > div { background: rgba(255, 255, 255, .04); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 10px; }
+.outlook-kpis b { display: block; font-family: var(--font-mono); font-size: 1.35rem; color: var(--ember-secondary); }
+.outlook-kpis span { display: block; font-size: .75rem; color: var(--text-secondary); line-height: 1.35; }

@@ -48,6 +48,7 @@
     // Yearly raw counts: {ukraine: [{year, modis, viirs, ratio}], world: [...]}
     getRawSeries: function () { return getJSON('raw_series.json'); },
     // Held-out months 2021–2025: {ukraine: [{year, month, snpp, modis_scaled, modis_raw}], world: [...]}
-    getValidation: function () { return getJSON('validation.json'); }
+    getValidation: function () { return getJSON('validation.json'); },
+    getOutlookMetrics: function () { return getJSON('outlook/metrics.json'); }
   };
 })();

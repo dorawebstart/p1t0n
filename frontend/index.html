@@ -87,6 +87,9 @@
             <a href="#method" class="btn btn-outline btn-hero" title="Jump to the method and the math">
               <span>How the method works</span>
             </a>
+            <a href="outlook.html" class="btn btn-outline btn-hero" title="Where fires are likely in the next 12 months">
+              <span>Fire outlook</span>
+            </a>
           </div>
 
           <div class="telemetry-strip animate-fade-up delay-4">
@@ -324,6 +327,39 @@
             </div>
             <div id="chart-valid" class="mini-chart" role="img" aria-label="Line chart of monthly hotspot totals 2021–2025: real Suomi NPP, MODIS translated to the Suomi NPP scale, and raw MODIS."></div>
             <p class="card-desc">The factors were fitted on 2012–2020 only. If the dashed line follows the solid one, the translation works on years it never saw; the grey line shows how far off raw MODIS is.</p>
+          </div>
+        </div>
+
+        <div class="glass-panel science-card outlook-card" id="outlook-card">
+          <div class="card-header">
+            <div class="card-title-block">
+              <div class="eyebrow">7 • Fire outlook — where fires are likely next</div>
+              <h3>A forecast from 25 years of harmonized hotspots</h3>
+            </div>
+            <a class="btn btn-primary btn-csv" href="outlook.html" title="Open the fire outlook map for the next 12 months">Open the outlook map →</a>
+          </div>
+          <div class="outlook-body">
+            <div>
+              <p class="card-desc">Because the record is now one consistent series, we can ask: <strong>how likely is an active fire month</strong> (≥ 10 hotspots on the Suomi NPP scale) in each 1° cell and month of the coming year?</p>
+              <div class="formula">w(y) = 0.5<sup>(2025 − y) / h</sup> &nbsp;— recent years weigh more</div>
+              <div class="formula">p(c, m) = (Σ w·e + a·p₀(m)) / (Σ w + a)</div>
+              <p class="card-desc">e = 1 if H ≥ 10. The second line is the posterior mean of a Beta–Bernoulli model: each cell follows its own history, rarely burned cells lean on the month's global base rate p₀. Half-life <span data-o="h">h</span> and prior <span data-o="a">a</span> were chosen on 2016–2020 only.</p>
+            </div>
+            <div>
+              <div class="eyebrow">Tested on unseen years 2021–2025</div>
+              <div class="outlook-kpis">
+                <div><b data-o="auc">—</b><span>ROC AUC (0.5 = coin, 1 = perfect)</span></div>
+                <div><b data-o="bss_p">—</b><span>better than “same as last year” (Brier skill)</span></div>
+                <div><b data-o="bss_c">—</b><span>better than the plain 25-year average</span></div>
+              </div>
+              <div class="eyebrow">Forward test: real fires in Ukraine, Jan–Oct 2026</div>
+              <div class="outlook-kpis">
+                <div><b data-o="ua_auc">—</b><span>ROC AUC, forecast from data to Dec 2025</span></div>
+                <div><b data-o="ua_bss">—</b><span>better than the plain average</span></div>
+                <div><b data-o="rel">—</b><span>forecast 50–70 % → fire happened (2021–2025)</span></div>
+              </div>
+              <p class="helper">A statistical outlook: it knows where and when fires usually happen and how that is changing, but not the weather. Adding a fire-weather index is the next step.</p>
+            </div>
           </div>
         </div>
       </div>
