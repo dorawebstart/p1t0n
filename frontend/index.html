@@ -257,8 +257,11 @@
             </div>
             <p class="card-desc">Monthly totals, hotspots per month. MAE — mean absolute error; WAPE — Σ|error| / Σ actual; bias — Σ error / Σ actual.</p>
             <p class="card-desc" id="metrics-raw"></p>
-            <p class="card-desc" id="metrics-reference"></p>
-            <blockquote id="metrics-notes" class="science-note">Loading validation results…</blockquote>
+            <details class="ol-more-mini">
+              <summary>Notes and limitations ↓</summary>
+              <p class="card-desc" id="metrics-reference"></p>
+              <blockquote id="metrics-notes" class="science-note">Loading validation results…</blockquote>
+            </details>
           </div>
 
           <div class="glass-panel science-card">
@@ -515,7 +518,7 @@
       <div class="eyebrow">06 • Fire outlook</div>
       <h2 class="page-heading">Where fires are likely in <span class="text-ember" id="ol-month-title">the next months</span></h2>
     </div></div>
-    <p class="ol-lead reveal">A seasonal outlook for the <strong>next 12 months</strong>, built from 25 years of harmonized NASA hotspots (2001–2025). For every 1° cell and month it gives the probability of an <strong>active fire month</strong> — at least 10 hotspots on the Suomi NPP scale. Recent years weigh more, so changes in the burning regime show up. We prove it on years the model never saw, including real fires in Ukraine in 2026.</p>
+    <p class="ol-lead reveal">Probability of an <strong>active fire month</strong> (≥ 10 hotspots per 1° cell) for the next 12 months, learned from 25 years of harmonized NASA data — and tested on years the model never saw.</p>
 
     <div class="ol-grid reveal d1">
       <div class="glass-panel ol-card">
@@ -529,22 +532,27 @@
       </div>
 
       <div class="glass-panel ol-card">
-        <div class="eyebrow">How it works</div>
-        <h3>Recency-weighted climatology</h3>
+        <div class="eyebrow">Does it work?</div>
+        <h3>Checked on fires it never saw</h3>
+        <div class="eyebrow" style="margin-top:4px">Unseen years 2021–2025</div>
+        <div class="ol-kpis" id="ol-kpis-test"></div>
+        <div class="eyebrow" style="margin-top:6px">Real fires in Ukraine, Jan–Oct 2026</div>
+        <div class="ol-kpis" id="ol-kpis-ua"></div>
+        <details class="ol-more-mini">
+          <summary>Formula ↓</summary>
         <div class="ol-formula" id="ol-formula">e(c,y,m) = 1 if H(c,y,m) ≥ 10
 w(y)     = 0.5^((2025 − y) / h)
 p(c,m)   = (Σ w·e + a·p₀(m)) / (Σ w + a)
 E(c,m)   = Σ w·H / Σ w</div>
         <p class="ol-note">H — harmonized hotspots of cell c in year y, month m. h — half-life in years, a — strength of a prior that pulls rarely seen cells toward the month's global base rate p₀. Both are chosen by forecasting 2016–2020 from the years before; the test years 2021–2025 are never used for the choice.</p>
-        <div class="eyebrow" style="margin-top:14px">Tested on unseen years 2021–2025</div>
-        <div class="ol-kpis" id="ol-kpis-test"></div>
-        <div class="eyebrow" style="margin-top:6px">Real out-of-sample test: Ukraine, Jan–Oct 2026</div>
-        <div class="ol-kpis" id="ol-kpis-ua"></div>
-        <p class="ol-note" id="ol-notes"></p>
+          <p class="ol-note" id="ol-notes"></p>
+        </details>
       </div>
     </div>
 
 
+    <details class="ol-more reveal d2">
+      <summary>How it is computed and why it can be trusted ↓</summary>
     <div class="ol-explain reveal d3">
       <div><b>Why the whole world?</b>The outlook does not touch individual hotspots. It uses the same 1° cells as the world map — about 16 400 cells × 300 months, already summed from 515 million NASA hotspots — so the whole planet is computed in a few minutes on a laptop.</div>
       <div><b>Why Ukraine for the proof?</b>To test a forecast honestly you need fires that happened <em>after</em> the model was built. NASA's yearly world archive for 2026 is not published yet; for Ukraine we downloaded the 2026 hotspots through the FIRMS API, so Ukraine is our real, out-of-sample check.</div>
@@ -581,6 +589,7 @@ E(c,m)   = Σ w·H / Σ w</div>
       <div class="eyebrow" style="margin-top:14px">Parameter search: Brier score on 2016–2020 (lower = better)</div>
       <div id="ol-grid" class="ol-gridtable"></div>
     </div>
+    </details>
       </div>
     </section>
 
