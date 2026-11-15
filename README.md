@@ -76,7 +76,7 @@ p(c,m)   = (Σ w·e + a·p0(m)) / (Σ w + a)                p0(m): base rate of 
 - Forward test on data that did not exist when the model was fitted: Ukraine, January–October 2026, AUC 0.87.
 - Limits: no weather input, so a dry spell or a wet month cannot be foreseen; the expected hotspot counts are much weaker than the probabilities (Ukraine, March 2026: 6,293 expected vs 1,662 observed).
 
-More detail: [`model/README.md`](model/README.md) (English section "Method"). Team notes in Ukrainian: `docs/MATH.md`, `docs/DEFENSE_PREP.md`.
+More detail: [`model/README.md`](model/README.md) (English section "Method"). Team notes in Ukrainian: `docs/P1T0N.md` (everything in one file), `docs/DEFENSE_PREP.md` (defense preparation).
 
 ## Data
 
@@ -93,7 +93,7 @@ More detail: [`model/README.md`](model/README.md) (English section "Method"). Te
 | `backend/` | `export_static.py`: writes the static JSON files the site reads |
 | `frontend/` | The web application (plain HTML/CSS/JS, Leaflet, three.js) and its data in `public/data/` |
 | `data/` | Small derived files: Ukraine hotspots, Ukraine grid, oblast boundaries |
-| `docs/` | Team documents (mostly Ukrainian) |
+| `docs/` | `P1T0N.md` — team guide (Ukrainian), `DEFENSE_PREP.md`, `SI_USAGE_LOG.md`, `presentation/` (slides, video subtitles), `figures/` |
 
 ## Reproduce
 
