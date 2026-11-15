@@ -65,7 +65,8 @@ def add_stats(cal: pd.DataFrame) -> pd.DataFrame:
     cal["median_count"] = g.transform("median")
     cal["p25_count"] = g.transform(lambda s: s.quantile(0.25))
     cal["p75_count"] = g.transform(lambda s: s.quantile(0.75))
-    sd = g.transform(lambda s: s.std(ddof=0)).replace(0, np.nan)
+    # sample SD (ddof=1), the same as analysis/build_calendar.py uses for Ukraine and its oblasts
+    sd = g.transform(lambda s: s.std(ddof=1)).replace(0, np.nan)
     cal["anomaly"] = ((cal["harmonized_count"] - cal["median_count"]) / sd).round(2).fillna(0.0)
     for c in ["harmonized_count", "median_count", "p25_count", "p75_count"]:
         cal[c] = cal[c].round(1)
@@ -133,7 +134,13 @@ def world_calendars(grid_path: Path, cc_path: Path):
     world.insert(0, "region_id", "WORLD")
     countries = sums[(sums["iso3"] != "") & (sums["iso3"] != "UKR")].rename(columns={"iso3": "region_id"})
 
+    # FIRMS codes that are not ISO-3 countries
+    EXTRA = {"ESB": "Dhekelia (UK Sovereign Base Area)", "WSB": "Akrotiri (UK Sovereign Base Area)",
+             "USG": "Guantanamo Bay (US Naval Base)"}
+
     def name(code):
+        if code in EXTRA:
+            return EXTRA[code]
         c = pycountry.countries.get(alpha_3=code)
         return getattr(c, "common_name", None) or (c.name if c else code)
 
@@ -321,11 +328,14 @@ def main():
     metrics = {
         "ukraine": metrics_block(ROOT / "model/out/metrics_UKR.json"),
         "world": metrics_block(ROOT / "model/out/metrics_world.json"),
-        "viirs_reference": "Suomi NPP VIIRS (2012-2025); NOAA-20 bridged to Suomi NPP after 2 Nov 2026",
+        "viirs_reference": "Suomi NPP VIIRS (Feb 2012 - Oct 2026). NOAA-20/Suomi NPP ratio measured on 2018-2025 (sum ratio 1.033, monthly median 1.007) for continuing the series after 2 Nov 2026; not yet applied.",
         "notes": ("Trained 2012-2020, tested on unseen 2021-2025: MODIS translated to the Suomi NPP scale vs real "
-                  "Suomi NPP, monthly totals. Single 0.25-degree cells are noisier (few hotspots per cell). "
+                  "Suomi NPP, monthly totals. Single 0.25-degree cells (the harmonization grid; the site map sums them into "
+                  "1-degree cells) are noisier (few hotspots per cell). "
                   "Winter months before 2012 are noisy (few MODIS detections x large coefficients). "
-                  "2026 is preliminary (near-real-time data).")}
+                  "2026 is preliminary (near-real-time data). Months with Suomi NPP outages (e.g. late Jul-early Aug 2022, "
+                  "Jul 2024) are not normalized for observing days and look like low-fire months; without the three "
+                  "such test months, Ukraine R2 is 0.98 and bias -0.7 %.")}
     write("metrics.json", metrics)
 
     # map points: recent months, one VIIRS satellite + MODIS

@@ -1,4 +1,5 @@
 // Segmented controls (mode switches): the ember highlight slides on one spring and its speed
+// Written with AI assistance (Claude Code) from the team's brief; reviewed and tested by Team P1t0n.
 // squashes it (wider, a touch shorter) so it reads as soft, then lands with a small overshoot.
 // If the buttons carry data-cap, the helper line under the control swaps with a quick blur out
 // and rise in. Rebuilt from the "Segmented control" motion study

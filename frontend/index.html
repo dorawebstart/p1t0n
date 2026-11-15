@@ -12,6 +12,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23ff5e2b%27/%3E%3Ctext x=%2716%27 y=%2722%27 font-family=%27monospace%27 font-size=%2716%27 font-weight=%27700%27 text-anchor=%27middle%27 fill=%27%2306070a%27%3EP1%3C/text%3E%3C/svg%3E" />
 </head>
 <body>
 
@@ -102,7 +103,7 @@
             <div class="telemetry-item glass-panel spotlight-card">
               <span class="tel-code">TIMELINE</span>
               <strong class="tel-val text-ember">2000–2026</strong>
-              <span class="tel-desc">Monthly counts; 2026 is preliminary (near-real-time)</span>
+              <span class="tel-desc">Monthly counts. World to Dec 2025; Ukraine to Oct 2026 (2026 preliminary, near-real-time)</span>
             </div>
           </div>
         </div>
@@ -185,13 +186,13 @@
           <div class="glass-panel idea-box idea-out">
             <span class="step-num">RESULT</span>
             <strong>One harmonized series</strong>
-            <span>2000–2026</span>
+            <span>Nov 2000 – Oct 2026</span>
           </div>
           <div class="idea-arrow" aria-hidden="true">→</div>
           <div class="glass-panel idea-box">
-            <span class="step-num">CONTINUITY</span>
+            <span class="step-num">NEXT</span>
             <strong>Bridge NOAA-20 → Suomi NPP</strong>
-            <span>after 2 Nov 2026</span>
+            <span>ratio measured (1.03), applied once Suomi NPP data end</span>
           </div>
         </div>
       </div>
@@ -230,7 +231,7 @@
             <ul class="formula-list">
               <li><span class="formula-inline">2000–2011</span> scaled MODIS (formula above)</li>
               <li><span class="formula-inline">2012 – Oct 2026</span> real Suomi NPP counts</li>
-              <li><span class="formula-inline">after 2 Nov 2026</span> b · NOAA-20, where b = Σ SNPP / Σ NOAA-20 over 2018–2025</li>
+              <li><span class="formula-inline">next: after 2 Nov 2026</span> b · NOAA-20, b = Σ SNPP / Σ NOAA-20 over 2018–2025 = 1 / 1.033 (measured; not yet applied — the series ends Oct 2026)</li>
             </ul>
             <p class="card-desc">Only <strong>one</strong> VIIRS satellite is used. Adding NOAA-20 on top of Suomi NPP would double the counts from 2018 — a new satellite, not more fire.</p>
           </div>
@@ -379,7 +380,7 @@
           <div class="control-group">
             <span class="label-like" id="series-label">Series</span>
             <div class="segmented-control" id="series-toggle" role="group" aria-labelledby="series-label">
-              <button type="button" class="seg-btn active" data-series="harmonized" data-cap="One series 2000–2026 on the Suomi NPP scale." title="Harmonized series on the Suomi NPP VIIRS scale">Harmonized</button>
+              <button type="button" class="seg-btn active" data-series="harmonized" data-cap="One series Nov 2000 – Oct 2026 on the Suomi NPP scale (world: to Dec 2025)." title="Harmonized series on the Suomi NPP VIIRS scale">Harmonized</button>
               <button type="button" class="seg-btn" data-series="modis" data-cap="Raw MODIS (Terra + Aqua): fewer hotspots, from 2000." title="Raw MODIS counts (Terra + Aqua)">MODIS</button>
               <button type="button" class="seg-btn" data-series="viirs" data-cap="Raw VIIRS Suomi NPP: from 2012 only." title="Raw VIIRS counts from Suomi NPP (2012 onwards)">VIIRS (SNPP)</button>
             </div>
@@ -494,7 +495,7 @@
               </div>
               <div class="control-group" id="cells-tools">
                 <div class="segmented-control" id="cells-series-toggle" role="group" aria-label="Which counts the world cells show">
-                  <button type="button" class="seg-btn active" data-series="harmonized" data-cap="One series 2000–2026 on the Suomi NPP scale (same switch as the calendar)." aria-pressed="true" title="MODIS translated to the Suomi NPP scale (2000–2012), real Suomi NPP after">Harmonized</button>
+                  <button type="button" class="seg-btn active" data-series="harmonized" data-cap="One series 2000–2025 on the Suomi NPP scale (same switch as the calendar)." aria-pressed="true" title="MODIS translated to the Suomi NPP scale (2000–2012), real Suomi NPP after">Harmonized</button>
                   <button type="button" class="seg-btn" data-series="modis" data-cap="Raw MODIS (Terra + Aqua): fewer hotspots, from 2000." aria-pressed="false" title="Raw MODIS hotspots, Terra + Aqua">MODIS</button>
                   <button type="button" class="seg-btn" data-series="viirs" data-cap="Raw VIIRS Suomi NPP: from 2012 only." aria-pressed="false" title="Raw VIIRS hotspots, Suomi NPP (from 2012)">VIIRS (SNPP)</button>
                 </div>

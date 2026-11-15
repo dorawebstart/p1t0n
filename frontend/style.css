@@ -42,7 +42,7 @@ body {
   line-height: 1.55;
 }
 
-/* Наскрізний 3D фон через Three.js */
+/* Full-page 3D background (three.js) */
 #space-bg-container {
   position: fixed;
   inset: 0;
@@ -181,7 +181,7 @@ body {
   z-index: 1;
 }
 
-/* Наскрізна навігація */
+/* Sticky navigation */
 .navbar {
   position: sticky;
   top: 0;
@@ -326,7 +326,7 @@ body {
   50% { transform: scale(1.4); opacity: 0.6; }
 }
 
-/* Секції */
+/* Sections */
 .site-section {
   min-height: 100vh;
   width: 100%;
@@ -649,7 +649,7 @@ body {
   font-size: 0.8rem;
 }
 
-/* ГОРИЗОНТАЛЬНА СІТКА З ОБМІНОМ РОЗМІРІВ: Карта велика (1.8), Календар компактний (1) */
+/* Two-column grid: wide map (1.8) and compact calendar (1) */
 .workspace-grid-swapped {
   display: grid;
   grid-template-columns: 1.8fr 1fr;
@@ -665,7 +665,7 @@ body {
   min-width: 0;
 }
 
-/* Компактний календар (в 2 рази менший за попередній) */
+/* Compact calendar */
 .heatmap-card-compact {
   max-width: 100%;
 }
@@ -846,7 +846,7 @@ body {
   padding-bottom: 4px;
 }
 
-/* Зменшена матриця календаря (в 2 рази компактніша) */
+/* Compact calendar matrix */
 .heatmap-matrix {
   display: grid;
   grid-template-columns: 52px repeat(12, minmax(22px, 1fr));
@@ -948,7 +948,7 @@ body {
   color: var(--text-secondary);
 }
 
-/* Інші секції */
+/* Other sections */
 .science-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1076,7 +1076,7 @@ body {
   display: none;
 }
 
-/* Адаптивність */
+/* Responsive layout */
 @media (max-width: 1280px) {
   .workspace-grid-swapped {
     grid-template-columns: 1fr;
@@ -1667,3 +1667,12 @@ body {
   .glass-panel { background: rgba(16, 18, 25, 0.97); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
   .kpi-card { background: rgba(16, 18, 25, 0.97); }
 }
+
+/* Tablets and small laptops: the nav row has no room for the data-status pill */
+@media (min-width: 768px) and (max-width: 1260px) {
+  .nav-status { display: none; }
+}
+/* Larger touch targets (≥ 24 px) */
+.checkbox-pill { min-height: 32px; }
+.checkbox-pill input[type="checkbox"] { width: 18px; height: 18px; }
+.raw-download, .text-link { display: inline-block; padding: 4px 0; min-height: 24px; }
