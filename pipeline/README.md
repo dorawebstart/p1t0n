@@ -18,8 +18,8 @@
 | `data/grid_monthly_UKR_v1.csv.gz` | `grid_monthly` лише для України (2000–2025), 292 101 рядок — щоб гармонізацію можна було почати, не чекаючи світу |
 | `data/fires_v2_stats.json` | що прочитано й відкинуто, розбивка по роках × супутниках, `confidence`, областях |
 | `data/regions.json`, `data/regions.geojson` | 27 областей України; властивість `region` = `fires.region` |
-| [Google Drive `processed/grid_monthly_v1.csv.gz`](https://drive.google.com/file/d/1Vmy12m93D2-YJMaQ-MGfb6annaXvPQiA/view?usp=sharing) (156 МБ) | `grid_monthly` для світу, 2000–2025: 23 614 861 рядок, 515 029 947 точок; суми збігаються з усіма 48 архівами FIRMS |
-| [Google Drive `processed/cell_country.csv`](https://drive.google.com/file/d/18YVk8iaIb3HNo8Y8Osrtf6focQKpWv1n/view?usp=sharing) (3,2 МБ) | `cell_id, iso3, region_id` для кожної з 191 187 клітинок світової сітки, 228 країн |
+| [GitHub Release `grid_monthly_v1.csv.gz`](https://github.com/dorawebstart/p1t0n/releases/download/data-v1/grid_monthly_v1.csv.gz) (164 МБ) | `grid_monthly` для світу, 2000–2025: 23 614 861 рядок, 515 029 947 точок; суми збігаються з усіма 48 архівами FIRMS |
+| [GitHub Release `cell_country.csv`](https://github.com/dorawebstart/p1t0n/releases/download/data-v1/cell_country.csv) (3,4 МБ) | `cell_id, iso3, region_id` для кожної з 191 187 клітинок світової сітки, 228 країн |
 
 ### `cell_country`: клітинка → країна → область
 

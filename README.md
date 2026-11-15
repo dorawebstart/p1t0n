@@ -100,7 +100,11 @@ python -m http.server 8000 --directory frontend                             # op
 
 > ⚠️ `backend/export_static.py` rebuilds `frontend/public/data` from scratch. Run it **with** `--world-grid` and `--cell-country`; without them it writes Ukraine only and the world view disappears.
 
-The world grid (`grid_monthly_v1.csv.gz`, 156 MB) and `cell_country.csv` are too large for git; they are shared on Google Drive (links in `pipeline/README.md`) or can be rebuilt with the commands above.
+The intermediate world files are too large for git; download them without login from the [data-v1 release](https://github.com/dorawebstart/p1t0n/releases/tag/data-v1), or rebuild them with the commands above:
+
+- [`grid_monthly_v1.csv.gz`](https://github.com/dorawebstart/p1t0n/releases/download/data-v1/grid_monthly_v1.csv.gz) (164 MB) — hotspots per 0.25° cell × month × satellite, 2000–2025
+- [`cell_country.csv`](https://github.com/dorawebstart/p1t0n/releases/download/data-v1/cell_country.csv) (3.4 MB) — cell → country / oblast
+- [`grid_harmonized_world.csv.gz`](https://github.com/dorawebstart/p1t0n/releases/download/data-v1/grid_harmonized_world.csv.gz) (63 MB) — harmonized cells, the input of `export_static.py --world-grid`
 
 ## Use of AI (Super Intelligence)
 
