@@ -638,8 +638,16 @@ E(c,m)   = Σ w·H / Σ w</div>
               </div>
             </div>
           </div>
-          <p class="helper helper-block">The map follows the month selected in the calendar. <strong>World cells (1°)</strong>: hotspot counts per 1° × 1° cell for the whole world, 2000–2025 — harmonized (Suomi NPP scale), raw MODIS or raw VIIRS; click a cell for its numbers. <strong>Ukraine points</strong>: individual MODIS and VIIRS hotspots in Ukraine for the months listed in the status line; click a point for its details. Zoom with a two-finger pinch, Ctrl + scroll or the +/− buttons.</p>
+          <p class="helper helper-block">Pick a month right here (‹ ›, type it or slide) — the calendar follows. Click a cell or point for its numbers.</p>
           <p class="map-note" id="map-note" role="status" hidden></p>
+
+          <div class="map-month" id="map-month" role="group" aria-label="Month shown on the map">
+            <button type="button" class="mm-btn" id="mm-prev" title="Previous month" aria-label="Previous month">‹</button>
+            <input type="text" id="mm-input" class="mm-input" inputmode="decimal" autocomplete="off" spellcheck="false" aria-label="Month, for example 2008-08" title="Type a month, e.g. 2008-8, and press Enter" />
+            <button type="button" class="mm-btn" id="mm-next" title="Next month" aria-label="Next month">›</button>
+            <input type="range" id="mm-range" class="mm-range" min="0" max="0" step="1" value="0" aria-label="Slide through months" />
+            <span class="mm-ends" id="mm-ends"></span>
+          </div>
 
           <div id="map-block" class="map-wrapper">
             <div id="map"></div>
