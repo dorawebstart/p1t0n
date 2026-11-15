@@ -568,7 +568,19 @@
     var list = mapMonths(), key = state.selected;
     var inp = $('mm-input'), rng = $('mm-range');
     if (!inp || !rng) return;
-    if (document.activeElement !== inp) inp.value = key || '';
+    var bar = $('map-month');
+    if (state.mapPeriod && state.layerPref !== 'world') {   // periods exist for world cells only
+      state.mapPeriod = null;
+      Array.prototype.forEach.call(document.querySelectorAll('#mm-mode .seg-btn'), function (x) {
+        var on = x.getAttribute('data-mode') === 'month'; x.classList.toggle('active', on); x.setAttribute('aria-pressed', on);
+      });
+    }
+    if (bar) bar.classList.toggle('is-period', !!state.mapPeriod);
+    if (state.mapPeriod) {
+      if (document.activeElement !== inp) inp.value = state.mapPeriod.from;
+      if (document.activeElement !== $('mm-input-to')) $('mm-input-to').value = state.mapPeriod.to;
+      key = state.mapPeriod.to;
+    } else if (document.activeElement !== inp) inp.value = key || '';
     rng.max = Math.max(0, list.length - 1);
     var i = list.indexOf(key);
     if (i >= 0) rng.value = i;
@@ -597,19 +609,83 @@
   function initMonthBar() {
     var inp = $('mm-input');
     if (!inp) return;
+    function parseKey(v) {
+      var m = /^\s*(\d{4})\s*(?:[-.,/\s]\s*(\d{1,2})|(\d{2}))?\s*$/.exec(v || '');
+      if (!m) return null;
+      var n = parseInt(m[2] || m[3] || '1', 10);
+      return n >= 1 && n <= 12 ? m[1] + '-' + (n < 10 ? '0' : '') + n : null;
+    }
+    function addMonths(k, d) {
+      var y = +k.slice(0, 4), mo = +k.slice(5, 7) - 1 + d;
+      y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12 + 1;
+      return y + '-' + (mo < 10 ? '0' : '') + mo;
+    }
+    function monthsBetween(a, b) { return (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5, 7) - +a.slice(5, 7)) + 1; }
+    function setPeriod(from, to) {
+      var w = state.worldMonths || [];
+      if (!w.length || !from || !to) return;
+      if (from > to) { var t = from; from = to; to = t; }
+      from = from < w[0] ? w[0] : from;
+      to = to > w[w.length - 1] ? w[w.length - 1] : to;
+      if (monthsBetween(from, to) > MAX_PERIOD) to = addMonths(from, MAX_PERIOD - 1);
+      state.mapPeriod = { from: from, to: to };
+      if (state.layerPref !== 'world') { state.layerPref = 'world'; }
+      loadFires();
+    }
     function step(d) {
+      if (state.mapPeriod) {      // move the whole window by one month
+        var p = state.mapPeriod, w = state.worldMonths || [];
+        var f = addMonths(p.from, d), t = addMonths(p.to, d);
+        if (w.length && (f < w[0] || t > w[w.length - 1])) return;
+        setPeriod(f, t); return;
+      }
       var list = mapMonths(), i = list.indexOf(state.selected);
       if (i < 0) return;
       goToMonth(list[Math.max(0, Math.min(list.length - 1, i + d))]);
     }
+    // Month / Period switch
+    Array.prototype.forEach.call(document.querySelectorAll('#mm-mode .seg-btn'), function (b) {
+      b.addEventListener('click', function () {
+        Array.prototype.forEach.call(document.querySelectorAll('#mm-mode .seg-btn'), function (x) {
+          var on = x === b; x.classList.toggle('active', on); x.setAttribute('aria-pressed', on);
+        });
+        if (b.getAttribute('data-mode') === 'range') {
+          var k = state.selected && worldAvailable(state.selected) ? state.selected : (state.worldMonths || []).slice(-1)[0];
+          if (!k) return;
+          setPeriod(k.slice(0, 4) + '-01', k.slice(0, 4) + '-12');
+        } else {
+          var keep = state.mapPeriod ? state.mapPeriod.to : state.selected;
+          state.mapPeriod = null;
+          if (keep && keep !== state.selected) goToMonth(keep); else loadFires();
+        }
+      });
+    });
+    $('mm-year').addEventListener('click', function () {
+      var k = state.mapPeriod ? state.mapPeriod.from : state.selected;
+      if (k) setPeriod(k.slice(0, 4) + '-01', k.slice(0, 4) + '-12');
+    });
+    function commitTo() {
+      var t = parseKey($('mm-input-to').value);
+      if (!t || !state.mapPeriod) { syncMonthBar(); return; }
+      setPeriod(state.mapPeriod.from, t);
+    }
+    $('mm-input-to').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); commitTo(); this.blur(); } });
+    $('mm-input-to').addEventListener('change', commitTo);
     $('mm-prev').addEventListener('click', function () { step(-1); });
     $('mm-next').addEventListener('click', function () { step(1); });
     var rt = 0;
     $('mm-range').addEventListener('input', function () {
       var list = mapMonths(), k = list[+this.value];
       if (!k) return;
-      inp.value = k;
       clearTimeout(rt);
+      if (state.mapPeriod) {     // slide the window, keep its length
+        var len = monthsBetween(state.mapPeriod.from, state.mapPeriod.to);
+        var f = addMonths(k, -(len - 1));
+        inp.value = f; $('mm-input-to').value = k;
+        rt = setTimeout(function () { setPeriod(f, k); }, 200);
+        return;
+      }
+      inp.value = k;
       rt = setTimeout(function () { goToMonth(k); }, 120);   // smooth while dragging
     });
     function commit() {
@@ -617,7 +693,9 @@
       if (!m) { syncMonthBar(); return; }
       var n = parseInt(m[2] || m[3] || '1', 10);
       if (n < 1 || n > 12) { syncMonthBar(); return; }
-      goToMonth(m[1] + '-' + (n < 10 ? '0' : '') + n);
+      var key = m[1] + '-' + (n < 10 ? '0' : '') + n;
+      if (state.mapPeriod) { setPeriod(key, state.mapPeriod.to); return; }
+      goToMonth(key);
     }
     inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); commit(); inp.blur(); } });
     inp.addEventListener('change', commit);
@@ -1029,7 +1107,7 @@
     var line1 = document.createElement('div');
     line1.textContent = ns(lat, 'N', 'S') + '..' + ns(lat + deg, 'N', 'S') + ', ' + ns(lon, 'E', 'W') + '..' + ns(lon + deg, 'E', 'W');
     var line2 = document.createElement('div');
-    line2.textContent = (isNum(n) && n > 0 ? fmtInt(n) + ' hotspots' : 'No hotspots recorded') + ' · ' + monthLabel(state.cells.month);
+    line2.textContent = (isNum(n) && n > 0 ? fmtInt(n) + ' hotspots' : 'No hotspots recorded') + ' · ' + (state.cells.label || monthLabel(state.cells.month));
     var line3 = document.createElement('div');
     line3.className = 'popup-sub';
     line3.textContent = SERIES[state.cells.series].short +
@@ -1115,13 +1193,52 @@
     if (map && cellsLayer && map.hasLayer(cellsLayer)) map.removeLayer(cellsLayer);
   }
 
+  // Months of the period shown on the map (Period mode), clipped to the world months; max 60.
+  var MAX_PERIOD = 60;
+  function periodMonths() {
+    var p = state.mapPeriod, w = state.worldMonths || [];
+    if (!p) return null;
+    return w.filter(function (k) { return k >= p.from && k <= p.to; }).slice(0, MAX_PERIOD);
+  }
+  function periodLabel(p) { return monthLabel(p.from) + ' – ' + monthLabel(p.to); }
+  // Sum several monthly files cell by cell; 6 requests at a time.
+  function sumWorldCells(months) {
+    var acc = {}, i = 0, done = 0;
+    return new Promise(function (resolve) {
+      if (!months.length) { resolve([]); return; }
+      function next() {
+        if (i >= months.length) return;
+        var k = months[i++];
+        API.getWorldCells(k).then(function (rows) {
+          (Array.isArray(rows) ? rows : []).forEach(function (r) {
+            if (!Array.isArray(r)) return;
+            var id = r[0] + '_' + r[1], a = acc[id];
+            if (!a) a = acc[id] = [r[0], r[1], 0, 0, 0];
+            a[2] += +r[2] || 0; a[3] += +r[3] || 0; a[4] += +r[4] || 0;
+          });
+        }).then(function () {
+          done++;
+          setText('map-status', 'Loading world cells… ' + done + ' / ' + months.length + ' months');
+          if (done === months.length) resolve(Object.keys(acc).map(function (id) { return acc[id]; }));
+          else next();
+        });
+      }
+      for (var n = 0; n < Math.min(6, months.length); n++) next();
+    });
+  }
+  var cellsToken = 0;
   function loadCells(key) {
     state.fires = [];
     if (firesLayer) firesLayer.clearLayers();
+    var token = ++cellsToken;
+    var period = state.mapPeriod ? periodMonths() : null;
+    var label = period && period.length ? periodLabel({ from: period[0], to: period[period.length - 1] }) : monthLabel(key);
     setText('map-title', 'World cells (1°)');
-    setText('map-status', 'Loading world cells for ' + key + '…');
-    API.getWorldCells(key).then(function (rows) {
-      if (key !== state.selected || state.layer !== 'world') return;
+    setText('map-status', 'Loading world cells for ' + label + '…');
+    var source = period && period.length ? sumWorldCells(period) : API.getWorldCells(key);
+    source.then(function (rows) {
+      if (token !== cellsToken || state.layer !== 'world') return;
+      if (period && period.length) key = period[0];
       var deg = state.manifest && isNum(state.manifest.world_cell_deg) ? state.manifest.world_cell_deg : 1;
       // Row = [lat, lon, harmonized, modis, viirs]; the map draws the series chosen in the toggles.
       var series = state.series, idx = { harmonized: 2, modis: 3, viirs: 4 }[series] || 2;
@@ -1136,7 +1253,7 @@
         renderCellsLegend(null);
         var why = series === 'viirs' && key < '2012-02' ? ' — Suomi NPP VIIRS starts in January 2012' : '';
         setText('map-title', 'World cells (1°) · ' + SERIES[series].short);
-        setText('map-status', 'No ' + SERIES[series].label.toLowerCase() + ' for ' + monthLabel(key) + why + '.');
+        setText('map-status', 'No ' + SERIES[series].label.toLowerCase() + ' for ' + label + why + '.');
         fitMap();
         return;
       }
@@ -1148,7 +1265,8 @@
       });
       // Draw large counts last so they stay on top.
       list.sort(function (a, b) { return a[idx] - b[idx]; });
-      state.cells = { list: list, byKey: byKey, lo: lo, hi: hi, deg: deg, month: key, idx: idx, series: series };
+      state.cells = { list: list, byKey: byKey, lo: lo, hi: hi, deg: deg, month: key, idx: idx, series: series, label: label,
+        nMonths: period && period.length ? period.length : 1 };
       setText('map-title', 'World cells (1°) · ' + SERIES[series].short);
       if (map && cellsLayer) {
         if (!map.hasLayer(cellsLayer)) cellsLayer.addTo(map);
@@ -1157,7 +1275,7 @@
       renderCellsLegend(state.cells);
       var what = { harmonized: 'harmonized hotspots (Suomi NPP scale)', modis: 'raw MODIS hotspots (Terra + Aqua)', viirs: 'raw VIIRS hotspots (Suomi NPP)' }[series];
       setText('map-status', fmtInt(list.length) + ' cells with hotspots · ' + fmtInt(Math.round(total)) + ' ' +
-        what + ' worldwide in ' + monthLabel(key) + '. Click a cell for its numbers.');
+        what + ' worldwide in ' + label + (period && period.length > 1 ? ' (' + period.length + ' months summed)' : '') + '. Click a cell for its numbers.');
       fitMap();
     });
   }
