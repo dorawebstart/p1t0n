@@ -57,7 +57,7 @@
   var firesLayer = null;
   var cellsLayer = null;
   var canvasRenderer = null;
-  var bgPaused = false; // the background globe stops rendering while the 3D chart is on screen
+  var bgPaused = false; // the 3D chart is on screen: the globe slows to ~20 fps (computers) or pauses (phones)
   var WORLD_VIEW = [[-60, -180], [75, 180]];
 
   /* ---------- small helpers ---------- */
@@ -2118,11 +2118,16 @@
     if (LITE) window.addEventListener('scroll', function () { scrollingUntil = performance.now() + 250; }, { passive: true });
     (function animate(ts) {
       requestAnimationFrame(animate);
-      if (bgPaused) return; // the 3D chart is on screen: save the GPU for it
       ts = ts || performance.now();
-      if (LITE && (ts < scrollingUntil || ts - lastDraw < 33)) return;
+      // While the 3D chart is on screen: phones pause the globe, computers keep it turning at ~20 fps.
+      if (bgPaused && LITE) { lastDraw = ts; return; }
+      var minGap = bgPaused ? 50 : (LITE ? 33 : 0);
+      if (LITE && ts < scrollingUntil) return;
+      if (ts - lastDraw < minGap) return;
+      // same angular speed at any frame rate (0.0018 rad per 60 fps frame; phones a little faster)
+      var dt = lastDraw ? Math.min(100, ts - lastDraw) : 16.7;
       lastDraw = ts;
-      earth.rotation.y += LITE ? 0.0034 : 0.0018;
+      earth.rotation.y += (LITE ? 0.0034 / 33 : 0.0018 / 16.7) * dt;
       renderer.render(scene, camera);
     })();
   }
