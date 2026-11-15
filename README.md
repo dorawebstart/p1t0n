@@ -3,6 +3,7 @@
 **NASA Space Apps Challenge 2026 · Local Event: Dnipro · Challenge: [Harmonization of MODIS and VIIRS Hot Spots](https://www.spaceappschallenge.org/2026/challenges/modis-and-viirs-hot-spots/)**
 
 - **Live site:** https://dorawebstart.github.io/p1t0n/
+- **Demo video (30 s):** https://youtu.be/Axq1RWZ0EGc
 - **Team page:** https://www.spaceappschallenge.org/2026/find-a-team/p1t0n/
 - **Code:** this repository (static site in `frontend/`, data pipeline in `pipeline/`, `model/`, `analysis/`, `backend/`)
 
